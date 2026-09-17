@@ -5,9 +5,15 @@
   "description": "Testseite: Text abfotografieren, per OCR erkennen und in einer Datenbank speichern",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "deploy": "wrangler deploy",
+    "dev:cf": "wrangler dev",
+    "db:init": "wrangler d1 execute happa-ocr --remote --file=schema.sql"
   },
   "engines": {
     "node": ">=22.5.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.133.0"
   }
 }

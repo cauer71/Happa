@@ -16,9 +16,28 @@ function setStatus(msg, kind = '') {
   statusEl.className = `status ${kind}`;
 }
 
-function showImage(dataUrl) {
-  imageDataUrl = dataUrl;
-  snapshot.src = dataUrl;
+// Fotos werden vor der OCR verkleinert - das beschleunigt die Erkennung.
+// Das Bild verlaesst den Browser nie, gespeichert wird ausschliesslich der Text.
+function downscale(dataUrl, maxSide = 1600, quality = 0.85) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      if (scale === 1 && dataUrl.length < 700_000) return resolve(dataUrl);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+async function showImage(dataUrl) {
+  imageDataUrl = await downscale(dataUrl);
+  snapshot.src = imageDataUrl;
   snapshot.hidden = false;
   placeholder.hidden = true;
   $('ocr').disabled = false;
@@ -53,9 +72,8 @@ $('shoot').addEventListener('click', () => {
   canvas.width = preview.videoWidth;
   canvas.height = preview.videoHeight;
   canvas.getContext('2d').drawImage(preview, 0, 0);
-  showImage(canvas.toDataURL('image/jpeg', 0.9));
+  showImage(canvas.toDataURL('image/jpeg', 0.9)).then(() => setStatus('Foto aufgenommen.'));
   stopCamera();
-  setStatus('Foto aufgenommen.');
 });
 
 $('file').addEventListener('change', (ev) => {
@@ -63,8 +81,8 @@ $('file').addEventListener('change', (ev) => {
   if (!file) return;
   stopCamera();
   const reader = new FileReader();
-  reader.onload = () => {
-    showImage(reader.result);
+  reader.onload = async () => {
+    await showImage(reader.result);
     setStatus(`Bild geladen: ${file.name}`);
   };
   reader.readAsDataURL(file);
@@ -111,7 +129,6 @@ $('save').addEventListener('click', async () => {
     text: textEl.value,
     language: $('lang').value,
     confidence: Number(textEl.dataset.confidence) || null,
-    imageDataUrl: $('withImage').checked ? imageDataUrl : null,
   };
   $('save').disabled = true;
   try {

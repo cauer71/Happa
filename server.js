@@ -10,7 +10,7 @@ const ROOT = fileURLToPath(new URL('.', import.meta.url));
 const PUBLIC_DIR = join(ROOT, 'public');
 const DATA_DIR = join(ROOT, 'data');
 const PORT = Number(process.env.PORT) || 3000;
-const MAX_BODY_BYTES = 12 * 1024 * 1024; // reicht für ein Foto als Data-URL
+const MAX_BODY_BYTES = 1 * 1024 * 1024; // es wird nur Text übertragen
 
 mkdirSync(DATA_DIR, { recursive: true });
 
@@ -21,18 +21,16 @@ db.exec(`
     created_at TEXT NOT NULL,
     text TEXT NOT NULL,
     language TEXT,
-    confidence REAL,
-    image_data_url TEXT
+    confidence REAL
   );
 `);
 
 const insertScan = db.prepare(
-  `INSERT INTO scans (created_at, text, language, confidence, image_data_url)
-   VALUES (?, ?, ?, ?, ?)`
+  `INSERT INTO scans (created_at, text, language, confidence)
+   VALUES (?, ?, ?, ?)`
 );
 const listScans = db.prepare(
-  `SELECT id, created_at, text, language, confidence,
-          (image_data_url IS NOT NULL) AS has_image
+  `SELECT id, created_at, text, language, confidence
    FROM scans ORDER BY id DESC LIMIT ?`
 );
 const getScan = db.prepare(`SELECT * FROM scans WHERE id = ?`);
@@ -102,16 +100,12 @@ async function handleApi(req, res, url) {
     const text = typeof payload.text === 'string' ? payload.text.trim() : '';
     if (!text) return sendJson(res, 400, { error: 'Kein Text übergeben' });
 
-    const image = typeof payload.imageDataUrl === 'string' && payload.imageDataUrl.startsWith('data:image/')
-      ? payload.imageDataUrl
-      : null;
     const confidence = Number.isFinite(payload.confidence) ? payload.confidence : null;
     const result = insertScan.run(
       new Date().toISOString(),
       text,
       typeof payload.language === 'string' ? payload.language : null,
-      confidence,
-      image
+      confidence
     );
     return sendJson(res, 201, { id: Number(result.lastInsertRowid) });
   }

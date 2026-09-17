@@ -1,0 +1,15 @@
+name = "happa-ocr"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+# Die Dateien aus public/ werden als statische Assets ausgeliefert,
+# alles unter /api/ beantwortet der Worker selbst.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "happa-ocr"
+database_id = "98ace768-9186-4a3a-86e8-e6c2fd5f1784"
