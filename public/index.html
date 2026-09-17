@@ -18,15 +18,15 @@
       <div class="capture">
         <video id="preview" playsinline muted hidden></video>
         <img id="snapshot" alt="Aufgenommenes Foto" hidden>
-        <p id="placeholder" class="placeholder">Noch kein Bild ausgewählt</p>
+        <p id="placeholder" class="placeholder">„Foto aufnehmen“ öffnet die Kamera des Geräts</p>
       </div>
       <div class="row">
-        <button id="startCam" type="button">Kamera starten</button>
-        <button id="shoot" type="button" disabled>Foto aufnehmen</button>
-        <label class="filebtn">
-          Bild auswählen
-          <input id="file" type="file" accept="image/*" capture="environment" hidden>
-        </label>
+        <button id="photoBtn" type="button">Foto aufnehmen</button>
+        <button id="pickBtn" type="button">Aus der Galerie</button>
+        <button id="startCam" type="button" hidden>Livekamera</button>
+        <button id="shoot" type="button" hidden>Auslösen</button>
+        <input id="camInput" class="sr-only" type="file" accept="image/*" capture="environment">
+        <input id="pickInput" class="sr-only" type="file" accept="image/*">
       </div>
     </section>
 

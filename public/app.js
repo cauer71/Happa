@@ -47,10 +47,24 @@ function stopCamera() {
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;
   preview.hidden = true;
-  $('shoot').disabled = true;
+  $('shoot').hidden = true;
+  $('startCam').textContent = 'Livekamera';
 }
 
+// Kamera und Galerie laufen ueber die File-Inputs - der Weg, der auf iOS und
+// Android zuverlaessig funktioniert. Die Livevorschau braucht getUserMedia und
+// ist nur ueber HTTPS bzw. localhost erlaubt.
+function liveCameraPossible() {
+  return Boolean(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
+}
+
+$('photoBtn').addEventListener('click', () => $('camInput').click());
+$('pickBtn').addEventListener('click', () => $('pickInput').click());
+
+$('startCam').hidden = !liveCameraPossible();
+
 $('startCam').addEventListener('click', async () => {
+  if (stream) { stopCamera(); setStatus(''); return; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
@@ -61,10 +75,13 @@ $('startCam').addEventListener('click', async () => {
     snapshot.hidden = true;
     placeholder.hidden = true;
     await preview.play();
-    $('shoot').disabled = false;
+    $('shoot').hidden = false;
+    $('startCam').textContent = 'Livekamera aus';
     setStatus('Kamera bereit.');
   } catch (err) {
-    setStatus(`Kamera nicht verfügbar (${err.message}). Bitte "Bild auswählen" nutzen.`, 'error');
+    stream = null;
+    $('startCam').hidden = true;
+    setStatus('Die Livekamera ist nicht verfügbar. Nimm „Foto aufnehmen“ — das öffnet die Kamera des Geräts.', 'error');
   }
 });
 
@@ -76,17 +93,21 @@ $('shoot').addEventListener('click', () => {
   stopCamera();
 });
 
-$('file').addEventListener('change', (ev) => {
-  const file = ev.target.files?.[0];
+function fileChosen(ev) {
+  const input = ev.target;
+  const file = input.files?.[0];
   if (!file) return;
   stopCamera();
   const reader = new FileReader();
   reader.onload = async () => {
     await showImage(reader.result);
-    setStatus(`Bild geladen: ${file.name}`);
+    setStatus('Foto übernommen. Jetzt OCR starten.');
+    input.value = '';   // dasselbe Foto laesst sich sonst kein zweites Mal waehlen
   };
   reader.readAsDataURL(file);
-});
+}
+$('camInput').addEventListener('change', fileChosen);
+$('pickInput').addEventListener('change', fileChosen);
 
 $('ocr').addEventListener('click', async () => {
   if (!imageDataUrl) return;
