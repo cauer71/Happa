@@ -9,6 +9,10 @@ directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
+# Workers AI: die Texterkennung laeuft serverseitig ueber ein Vision-Modell.
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "happa-ocr"

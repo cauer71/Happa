@@ -3,25 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OCR-Test</title>
+  <title>Text abfotografieren</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <h1>Text abfotografieren &amp; erkennen</h1>
-    <p class="sub">Testseite: Foto aufnehmen &rarr; OCR &rarr; in der Datenbank speichern.</p>
+    <p class="sub">Foto aufnehmen &rarr; Text erkennen &rarr; in der Datenbank speichern.</p>
   </header>
 
   <main>
     <section class="card">
-      <h2>1. Foto aufnehmen</h2>
+      <h2>1. Foto</h2>
       <div class="capture">
         <video id="preview" playsinline muted hidden></video>
         <img id="snapshot" alt="Aufgenommenes Foto" hidden>
         <p id="placeholder" class="placeholder">„Foto aufnehmen“ öffnet die Kamera des Geräts</p>
       </div>
       <div class="row">
-        <button id="photoBtn" type="button">Foto aufnehmen</button>
+        <button id="photoBtn" type="button" class="primary">Foto aufnehmen</button>
         <button id="pickBtn" type="button">Aus der Galerie</button>
         <button id="startCam" type="button" hidden>Livekamera</button>
         <button id="shoot" type="button" hidden>Auslösen</button>
@@ -33,18 +33,37 @@
     <section class="card">
       <h2>2. Text erkennen</h2>
       <div class="row">
-        <label for="lang">Sprache</label>
-        <select id="lang">
-          <option value="deu">Deutsch</option>
-          <option value="eng">Englisch</option>
-          <option value="deu+eng">Deutsch + Englisch</option>
-          <option value="ita">Italienisch</option>
-        </select>
-        <button id="ocr" type="button" disabled>OCR starten</button>
+        <label class="field">
+          <span>Erkennung</span>
+          <select id="engine">
+            <option value="ai">Server-KI (genau)</option>
+            <option value="tesseract">Im Browser (offline, ungenauer)</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Sprache im Dokument</span>
+          <select id="lang">
+            <option value="Deutsch" data-tess="deu">Deutsch</option>
+            <option value="Italienisch" data-tess="ita">Italienisch</option>
+            <option value="Englisch" data-tess="eng">Englisch</option>
+            <option value="Deutsch und Italienisch gemischt" data-tess="deu+ita">Deutsch + Italienisch</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Art des Textes</span>
+          <select id="mode">
+            <option value="flow">Fließtext</option>
+            <option value="table">Tabelle / Formular</option>
+            <option value="hand">Handschrift</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="ocr" type="button" class="primary" disabled>Text ablesen</button>
       </div>
       <progress id="progress" value="0" max="1" hidden></progress>
       <p id="status" class="status"></p>
-      <textarea id="text" rows="10" placeholder="Erkannter Text erscheint hier und kann vor dem Speichern korrigiert werden."></textarea>
+      <textarea id="text" rows="10" spellcheck="false" placeholder="Erkannter Text erscheint hier und kann vor dem Speichern korrigiert werden."></textarea>
       <div class="row">
         <span class="hint">Gespeichert wird nur der Text, nicht das Foto.</span>
         <button id="save" type="button" class="primary" disabled>In Datenbank speichern</button>

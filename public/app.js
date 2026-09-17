@@ -1,4 +1,6 @@
-// Ablauf: Foto aufnehmen -> Tesseract.js erkennt den Text -> Text an den Server (SQLite).
+// Ablauf: Foto aufnehmen -> Text erkennen -> Text an den Server (Datenbank).
+// Zwei Erkennungswege: serverseitig über Workers AI (genau) oder Tesseract.js
+// im Browser (funktioniert offline, liest aber deutlich schlechter).
 const $ = (id) => document.getElementById(id);
 const preview = $('preview');
 const snapshot = $('snapshot');
@@ -10,15 +12,18 @@ const textEl = $('text');
 
 let stream = null;
 let imageDataUrl = null;
+let lastEngine = null;
+let lastConfidence = null;
 
 function setStatus(msg, kind = '') {
   statusEl.textContent = msg;
   statusEl.className = `status ${kind}`;
 }
 
-// Fotos werden vor der OCR verkleinert - das beschleunigt die Erkennung.
-// Das Bild verlaesst den Browser nie, gespeichert wird ausschliesslich der Text.
-function downscale(dataUrl, maxSide = 1600, quality = 0.85) {
+// Fotos werden vor der Erkennung verkleinert: schneller hochgeladen und für
+// die Modelle völlig ausreichend. Das Bild verlässt den Browser nur für den
+// Leseauftrag, gespeichert wird ausschließlich der Text.
+function downscale(dataUrl, maxSide = 1600, quality = 0.9) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -39,6 +44,7 @@ async function showImage(dataUrl) {
   imageDataUrl = await downscale(dataUrl);
   snapshot.src = imageDataUrl;
   snapshot.hidden = false;
+  preview.hidden = true;
   placeholder.hidden = true;
   $('ocr').disabled = false;
 }
@@ -51,9 +57,9 @@ function stopCamera() {
   $('startCam').textContent = 'Livekamera';
 }
 
-// Kamera und Galerie laufen ueber die File-Inputs - der Weg, der auf iOS und
-// Android zuverlaessig funktioniert. Die Livevorschau braucht getUserMedia und
-// ist nur ueber HTTPS bzw. localhost erlaubt.
+// Kamera und Galerie laufen über die File-Inputs - der Weg, der auf iOS und
+// Android zuverlässig funktioniert. Die Livevorschau braucht getUserMedia und
+// ist nur über HTTPS bzw. localhost erlaubt.
 function liveCameraPossible() {
   return Boolean(navigator.mediaDevices?.getUserMedia) && window.isSecureContext;
 }
@@ -67,7 +73,7 @@ $('startCam').addEventListener('click', async () => {
   if (stream) { stopCamera(); setStatus(''); return; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 } },
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 2048 } },
       audio: false,
     });
     preview.srcObject = stream;
@@ -101,22 +107,37 @@ function fileChosen(ev) {
   const reader = new FileReader();
   reader.onload = async () => {
     await showImage(reader.result);
-    setStatus('Foto übernommen. Jetzt OCR starten.');
-    input.value = '';   // dasselbe Foto laesst sich sonst kein zweites Mal waehlen
+    setStatus('Foto übernommen. Jetzt ablesen lassen.');
+    input.value = '';   // dasselbe Foto lässt sich sonst kein zweites Mal wählen
   };
   reader.readAsDataURL(file);
 }
 $('camInput').addEventListener('change', fileChosen);
 $('pickInput').addEventListener('change', fileChosen);
 
-$('ocr').addEventListener('click', async () => {
-  if (!imageDataUrl) return;
-  const lang = $('lang').value;
-  $('ocr').disabled = true;
+// --- Erkennung --------------------------------------------------------------
+
+async function readWithAi() {
+  setStatus('Der Server liest das Foto…');
+  const res = await fetch('/api/ocr', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      imageDataUrl,
+      language: $('lang').value,
+      mode: $('mode').value,
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? res.statusText);
+  return { text: json.empty ? '' : json.text, confidence: null };
+}
+
+async function readWithTesseract() {
+  const lang = $('lang').selectedOptions[0].dataset.tess || 'deu';
   progress.hidden = false;
   progress.value = 0;
-  setStatus('Sprachdaten werden geladen, das kann beim ersten Mal etwas dauern …');
-
+  setStatus('Sprachdaten werden geladen, das kann beim ersten Mal dauern …');
   try {
     const { data } = await Tesseract.recognize(imageDataUrl, lang, {
       logger: (m) => {
@@ -124,39 +145,61 @@ $('ocr').addEventListener('click', async () => {
         if (m.status) setStatus(`${m.status} … ${Math.round((m.progress ?? 0) * 100)} %`);
       },
     });
-    textEl.value = data.text.trim();
-    textEl.dataset.confidence = data.confidence ?? '';
-    $('save').disabled = !textEl.value;
-    setStatus(
-      textEl.value
-        ? `Erkennung fertig (Konfidenz ${Math.round(data.confidence)} %). Text prüfen und speichern.`
-        : 'Kein Text erkannt. Anderes Foto oder bessere Beleuchtung versuchen.',
-      textEl.value ? 'ok' : 'error'
-    );
-  } catch (err) {
-    setStatus(`OCR fehlgeschlagen: ${err.message}`, 'error');
+    return { text: data.text.trim(), confidence: data.confidence ?? null };
   } finally {
     progress.hidden = true;
+  }
+}
+
+$('ocr').addEventListener('click', async () => {
+  if (!imageDataUrl) return;
+  const engine = $('engine').value;
+  $('ocr').disabled = true;
+  textEl.value = '';
+  updateSaveState();
+
+  try {
+    const result = engine === 'ai' ? await readWithAi() : await readWithTesseract();
+    textEl.value = result.text;
+    lastEngine = engine;
+    lastConfidence = result.confidence;
+    updateSaveState();
+
+    if (!result.text) {
+      setStatus('Auf dem Foto war kein lesbarer Text. Näher heran, mehr Licht, dann noch einmal.', 'error');
+    } else if (engine === 'ai') {
+      setStatus('Abgelesen. Text prüfen und speichern.', 'ok');
+    } else {
+      setStatus(`Abgelesen (Konfidenz ${Math.round(result.confidence ?? 0)} %). Text prüfen und speichern.`, 'ok');
+    }
+  } catch (err) {
+    setStatus(engine === 'ai'
+      ? `Serverseitige Erkennung fehlgeschlagen: ${err.message}. Du kannst auf „Im Browser“ umschalten.`
+      : `Erkennung fehlgeschlagen: ${err.message}`, 'error');
+  } finally {
     $('ocr').disabled = false;
   }
 });
 
-textEl.addEventListener('input', () => {
+// --- Speichern und Liste ----------------------------------------------------
+
+function updateSaveState() {
   $('save').disabled = !textEl.value.trim();
-});
+}
+textEl.addEventListener('input', updateSaveState);
 
 $('save').addEventListener('click', async () => {
-  const body = {
-    text: textEl.value,
-    language: $('lang').value,
-    confidence: Number(textEl.dataset.confidence) || null,
-  };
   $('save').disabled = true;
   try {
     const res = await fetch('/api/scans', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        text: textEl.value,
+        language: $('lang').value,
+        confidence: lastConfidence,
+        engine: lastEngine,
+      }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? res.statusText);
@@ -165,9 +208,11 @@ $('save').addEventListener('click', async () => {
   } catch (err) {
     setStatus(`Speichern fehlgeschlagen: ${err.message}`, 'error');
   } finally {
-    $('save').disabled = !textEl.value.trim();
+    updateSaveState();
   }
 });
+
+const ENGINE_LABEL = { ai: 'Server-KI', tesseract: 'Browser' };
 
 async function loadList() {
   const res = await fetch('/api/scans?limit=50');
@@ -182,10 +227,14 @@ async function loadList() {
     const li = document.createElement('li');
     const meta = document.createElement('div');
     meta.className = 'meta';
-    meta.textContent = `#${scan.id} · ${new Date(scan.created_at).toLocaleString('de-DE')} · ${scan.language ?? '—'}`
-      + (scan.confidence ? ` · ${Math.round(scan.confidence)} %` : '');
+    const parts = [`#${scan.id}`, new Date(scan.created_at).toLocaleString('de-DE'), scan.language ?? '—'];
+    if (scan.engine) parts.push(ENGINE_LABEL[scan.engine] ?? scan.engine);
+    if (scan.confidence) parts.push(`${Math.round(scan.confidence)} %`);
+    meta.textContent = parts.join(' · ');
+
     const pre = document.createElement('pre');
     pre.textContent = scan.text;
+
     const del = document.createElement('button');
     del.type = 'button';
     del.textContent = 'Löschen';
@@ -193,6 +242,7 @@ async function loadList() {
       await fetch(`/api/scans/${scan.id}`, { method: 'DELETE' });
       await loadList();
     });
+
     meta.append(del);
     li.append(meta, pre);
     list.append(li);

@@ -21,16 +21,17 @@ db.exec(`
     created_at TEXT NOT NULL,
     text TEXT NOT NULL,
     language TEXT,
-    confidence REAL
+    confidence REAL,
+    engine TEXT
   );
 `);
 
 const insertScan = db.prepare(
-  `INSERT INTO scans (created_at, text, language, confidence)
-   VALUES (?, ?, ?, ?)`
+  `INSERT INTO scans (created_at, text, language, confidence, engine)
+   VALUES (?, ?, ?, ?, ?)`
 );
 const listScans = db.prepare(
-  `SELECT id, created_at, text, language, confidence
+  `SELECT id, created_at, text, language, confidence, engine
    FROM scans ORDER BY id DESC LIMIT ?`
 );
 const getScan = db.prepare(`SELECT * FROM scans WHERE id = ?`);
@@ -90,6 +91,13 @@ async function serveStatic(res, urlPath) {
 async function handleApi(req, res, url) {
   const idMatch = url.pathname.match(/^\/api\/scans\/(\d+)$/);
 
+  if (url.pathname === '/api/ocr' && req.method === 'POST') {
+    return sendJson(res, 501, {
+      error: 'Die serverseitige Erkennung läuft über Workers AI und steht nur in der '
+        + 'Cloudflare-Variante zur Verfügung. Lokal bitte auf „Im Browser“ umschalten.',
+    });
+  }
+
   if (url.pathname === '/api/scans' && req.method === 'GET') {
     const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 200);
     return sendJson(res, 200, { scans: listScans.all(limit) });
@@ -105,7 +113,8 @@ async function handleApi(req, res, url) {
       new Date().toISOString(),
       text,
       typeof payload.language === 'string' ? payload.language : null,
-      confidence
+      confidence,
+      typeof payload.engine === 'string' ? payload.engine : null
     );
     return sendJson(res, 201, { id: Number(result.lastInsertRowid) });
   }
