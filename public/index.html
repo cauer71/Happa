@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OCR-Test</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Text abfotografieren &amp; erkennen</h1>
+    <p class="sub">Testseite: Foto aufnehmen &rarr; OCR &rarr; in der Datenbank speichern.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Foto aufnehmen</h2>
+      <div class="capture">
+        <video id="preview" playsinline muted hidden></video>
+        <img id="snapshot" alt="Aufgenommenes Foto" hidden>
+        <p id="placeholder" class="placeholder">Noch kein Bild ausgewählt</p>
+      </div>
+      <div class="row">
+        <button id="startCam" type="button">Kamera starten</button>
+        <button id="shoot" type="button" disabled>Foto aufnehmen</button>
+        <label class="filebtn">
+          Bild auswählen
+          <input id="file" type="file" accept="image/*" capture="environment" hidden>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Text erkennen</h2>
+      <div class="row">
+        <label for="lang">Sprache</label>
+        <select id="lang">
+          <option value="deu">Deutsch</option>
+          <option value="eng">Englisch</option>
+          <option value="deu+eng">Deutsch + Englisch</option>
+          <option value="ita">Italienisch</option>
+        </select>
+        <button id="ocr" type="button" disabled>OCR starten</button>
+      </div>
+      <progress id="progress" value="0" max="1" hidden></progress>
+      <p id="status" class="status"></p>
+      <textarea id="text" rows="10" placeholder="Erkannter Text erscheint hier und kann vor dem Speichern korrigiert werden."></textarea>
+      <div class="row">
+        <label><input id="withImage" type="checkbox" checked> Foto mitspeichern</label>
+        <button id="save" type="button" class="primary" disabled>In Datenbank speichern</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Gespeicherte Einträge</h2>
+      <button id="reload" type="button">Aktualisieren</button>
+      <ul id="list" class="list"></ul>
+    </section>
+  </main>
+
+  <canvas id="canvas" hidden></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
