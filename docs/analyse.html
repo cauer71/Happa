@@ -1,0 +1,319 @@
+<title>Abnehm-Apps im Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Familjen+Grotesk:wght@500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #f3f6f4;
+    --surface: #ffffff;
+    --surface-2: #e9efeb;
+    --ink: #13201a;
+    --muted: #55655d;
+    --line: #d5dfd9;
+    --accent: #0a8458;
+    --accent-soft: #d8f1e5;
+    --warn: #c2410c;
+    --warn-soft: #fde7da;
+    --dot-on: #13201a;
+    --dot-half: #8a9a92;
+    --dot-off: #c9d4ce;
+    --phone: #fbfcfb;
+    --phone-line: #cdd8d2;
+    --shadow: 0 1px 2px rgba(19, 32, 26, .06), 0 8px 24px rgba(19, 32, 26, .06);
+    --display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+    --body: "Atkinson Hyperlegible", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0c1310; --surface: #141e19; --surface-2: #1b2821; --ink: #e7efeb; --muted: #9fb2a9; --line: #2a3a32;
+      --accent: #4be39d; --accent-soft: #143325; --warn: #fb923c; --warn-soft: #3a2014;
+      --dot-on: #e7efeb; --dot-half: #7f948a; --dot-off: #33443b; --phone: #1a2620; --phone-line: #34463c;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0c1310; --surface: #141e19; --surface-2: #1b2821; --ink: #e7efeb; --muted: #9fb2a9; --line: #2a3a32;
+    --accent: #4be39d; --accent-soft: #143325; --warn: #fb923c; --warn-soft: #3a2014;
+    --dot-on: #e7efeb; --dot-half: #7f948a; --dot-off: #33443b; --phone: #1a2620; --phone-line: #34463c;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.55 var(--body); padding-inline: 16px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 64px; }
+  h1, h2, h3 { font-family: var(--display); letter-spacing: -.015em; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(34px, 6vw, 58px); line-height: 1.02; font-weight: 700; }
+  h2 { font-size: clamp(24px, 3.2vw, 32px); line-height: 1.15; font-weight: 700; margin-bottom: 6px; }
+  h3 { font-size: 21px; font-weight: 700; }
+  p { margin: 0; }
+  .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .lede { font-size: 19px; color: var(--muted); max-width: 64ch; margin-top: 14px; }
+  section { margin-top: 56px; }
+  .sec-note { color: var(--muted); max-width: 70ch; }
+
+  .takeaways { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 28px; }
+  .take { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  .take b { display: block; font-family: var(--display); font-size: 19px; margin-bottom: 4px; }
+  .take .big { font-family: var(--display); font-size: 40px; font-weight: 700; line-height: 1; color: var(--accent); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+
+  .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 20px; }
+  .app { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); }
+  .app-head { display: flex; align-items: center; gap: 12px; }
+  .mono { width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; color: #fff; font: 700 20px var(--display); flex: none; }
+  .app-name { font: 700 21px/1.1 var(--display); }
+  .price { font-size: 14px; color: var(--muted); }
+  .pill { margin-left: auto; font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { background: var(--accent-soft); color: var(--accent); }
+  .pill.bad { background: var(--warn-soft); color: var(--warn); }
+  .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sw { display: inline-flex; align-items: center; gap: 6px; font: 12px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 4px 8px 4px 4px; }
+  .sw i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .facts { display: grid; gap: 8px; margin: 0; }
+  .facts div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; font-size: 15px; }
+  .facts dt { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+  .facts dd { margin: 0; }
+
+  .phones { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-top: 20px; }
+  .phone-card { display: grid; justify-items: center; gap: 8px; text-align: center; }
+  .phone-card svg { width: 100%; max-width: 170px; height: auto; }
+  .phone-card b { font-family: var(--display); font-size: 17px; }
+  .phone-card span { font-size: 13px; color: var(--muted); max-width: 22ch; }
+
+  .table-wrap { overflow-x: auto; margin-top: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 15px; }
+  th, td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font: 700 14px var(--display); position: sticky; top: 0; background: var(--surface); }
+  tbody tr:last-child td { border-bottom: 0; }
+  .happa { background: var(--accent-soft); }
+  thead .happa { color: var(--accent); }
+  .d { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; }
+  .d.on { background: var(--dot-on); }
+  .d.half { background: linear-gradient(90deg, var(--dot-half) 50%, var(--dot-off) 50%); }
+  .d.off { background: transparent; box-shadow: inset 0 0 0 1.5px var(--dot-off); }
+  .cell-note { display: block; font-size: 11px; color: var(--muted); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; color: var(--muted); margin-top: 10px; }
+  .legend span { display: inline-flex; gap: 6px; align-items: center; }
+
+  .patterns { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 20px; padding: 0; list-style: none; counter-reset: p; }
+  .patterns li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .patterns li b { display: block; font-family: var(--display); font-size: 17px; margin-bottom: 2px; }
+
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 20px; }
+  .col { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); }
+  .col h3 { margin-bottom: 10px; }
+  .col ul { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  .col.keep h3 { color: var(--accent); }
+  .col.drop h3 { color: var(--warn); }
+
+  .sources { font-size: 14px; color: var(--muted); margin-top: 48px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .sources a { color: var(--accent); }
+  a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Analyse für Happa · 6 Apps · Stand September 2026</div>
+    <h1>Abnehm-Apps im Check: Grafik und Motivation</h1>
+    <p class="lead lede">Grundlage ist der Women's-Health-Test „Diese 6 Abnehm-Apps funktionieren wirklich – und diese sind nur Marketing“. Dazu kommen die aktuellen deutschen App-Store-Bilder jeder App, jedes einzeln angesehen: Wie sehen die Apps aus, und womit halten sie ihre Nutzer bei der Stange?</p>
+  </header>
+
+  <div class="takeaways">
+    <div class="take"><div class="big">1</div><b>Tracking wirkt, der Rest ist Verpackung</b><p>Das Kernergebnis des Artikels: Einfaches Eintragen ist der wirksamste Mechanismus – und das bieten alle Apps gratis.</p></div>
+    <div class="take"><div class="big">0,5 kg</div><b>pro Woche ist das gesunde Maximum</b><p>Noom wirbt mit 1,2 kg pro Woche und einer Zielkurve „65 kg bis 18. Mai“. Genau das kritisiert der Artikel als Marketing.</p></div>
+    <div class="take"><div class="big">3 von 6</div><b>erkennen Essen per Foto</b><p>YAZIO, FDDB und Lifesum haben 2026 einen KI-Scanner; Lifesum versteht zusätzlich Text und Sprache.</p></div>
+  </div>
+
+  <section aria-labelledby="h-apps">
+    <h2 id="h-apps">Die sechs Apps</h2>
+    <p class="sec-note">Farbwerte sind aus den Store-Bildern abgelesen und gerundet.</p>
+    <div class="apps" id="apps"></div>
+  </section>
+
+  <section aria-labelledby="h-screens">
+    <h2 id="h-screens">So sieht der Startbildschirm aus</h2>
+    <p class="sec-note">Vereinfachte Skizzen der jeweils wichtigsten Ansicht, gezeichnet nach den Store-Bildern. Fast alle stellen eine Zahl in den Mittelpunkt: die Kalorien, die heute noch übrig sind.</p>
+    <div class="phones" id="phones"></div>
+  </section>
+
+  <section aria-labelledby="h-matrix">
+    <h2 id="h-matrix">Womit die Apps motivieren</h2>
+    <p class="sec-note">Gezählt ist nur, was auf den App-Store-Bildern sichtbar ist. Die letzte Spalte zeigt, was Happa daraus gemacht hat.</p>
+    <div class="table-wrap"><table id="matrix"></table></div>
+    <div class="legend"><span><i class="d on"></i> vorhanden</span><span><i class="d half"></i> teilweise</span><span><i class="d off"></i> nicht zu sehen</span></div>
+  </section>
+
+  <section aria-labelledby="h-patterns">
+    <h2 id="h-patterns">Muster, die fast alle teilen</h2>
+    <ul class="patterns">
+      <li><b>Ein Tacho mit „übrig“</b>Positiv formuliert: Die Zahl in der Mitte schrumpft über den Tag, statt dass eine Summe wächst.</li>
+      <li><b>Drei Makro-Balken</b>Kohlenhydrate, Eiweiß und Fett in festen Farben direkt unter dem Tacho.</li>
+      <li><b>Mahlzeiten als Karten</b>Frühstück bis Snacks, jede mit eigener Plus-Taste und Kaloriensumme.</li>
+      <li><b>Wochenleiste oben</b>Bei MyFitnessPal und FDDB: Tage wählbar, abgehakte Tage als kleine Belohnung.</li>
+      <li><b>Eine zentrale Aktion</b>Plus-Taste in der Mitte oder schwebend rechts – bei MyFitnessPal schon ganz im Stil von iOS 26.</li>
+      <li><b>Social Proof in der Werbung</b>Nutzerzahlen, Sterne, Vorher-Nachher-Fotos. Das wirkt, sagt aber nichts über die Wirkung der App.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-happa">
+    <h2 id="h-happa">Was Happa daraus macht</h2>
+    <div class="two">
+      <div class="col keep">
+        <h3>Übernommen</h3>
+        <ul>
+          <li><b>Foto statt Tippen:</b> Workers AI erkennt Bestandteile, Menge und Nährwerte; jede Zeile lässt sich anpassen oder durch einen Datenbankwert ersetzen.</li>
+          <li><b>Kalorienring mit „übrig“</b>, drei Makro-Balken, vier Mahlzeitenkarten mit Kamera- und Plus-Taste.</li>
+          <li><b>Wochenleiste</b> zum Wischen, Serie mit Kalender und Rekord, 11 Abzeichen mit Konfetti.</li>
+          <li><b>Prognose, aber ehrlich:</b> höchstens 0,5 kg pro Woche, nie unter 1.200 bzw. 1.500 kcal, „Wenn jede Woche so wäre wie diese …“ aus dem echten Schnitt.</li>
+          <li><b>Wasser-Gläser</b>, Gewichtskurve mit Ziellinie, ein sachlicher Tipp pro Tag.</li>
+          <li><b>Deutsche Daten:</b> Bundeslebensmittelschlüssel 4.0 (7.140 Lebensmittel, offline) und Open Food Facts für Barcodes.</li>
+          <li><b>Look:</b> Liquid Glass wie iOS 26 – schwebende Kapsel-Tab-Leiste mit runder Kamera-Taste, wie das Muster bei MyFitnessPal.</li>
+        </ul>
+      </div>
+      <div class="col drop">
+        <h3>Bewusst weggelassen</h3>
+        <ul>
+          <li><b>Paywall und Abo-Druck:</b> keine Bezahlfunktionen, keine gesperrten Module.</li>
+          <li><b>Überzogene Versprechen</b> wie 1,2 kg pro Woche oder Vorher-Nachher-Fotos.</li>
+          <li><b>Schuldgefühle:</b> Über dem Ziel wird der Ring orange statt rot: „Etwas drüber – kein Problem. Entscheidend ist der Wochenschnitt.“</li>
+          <li><b>Endlose Fragebögen:</b> sechs kurze Schritte bis zum fertigen Plan.</li>
+          <li><b>Werbung und Datenhandel:</b> Fotos werden nie gespeichert, Export und Konto löschen jederzeit.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="sec-note" style="margin-top:16px">Mögliche nächste Schritte, die bei der Konkurrenz gut ankommen: eine Lebensmittel-Ampel wie bei Zanadio und Noom, ein Fasten-Timer wie bei YAZIO, FDDB und Lifesum, und Eintragen per Sprache wie bei Lifesum.</p>
+  </section>
+
+  <div class="sources">
+    Quellen: <a href="https://www.womenshealth.de/abnehmen/schnell-abnehmen/diese-6-abnehm-apps-funktionieren-wirklich-und-diese-sind-nur-marketing/" target="_blank" rel="noopener">Women's Health – Abnehm-Apps im Test</a> ·
+    Deutsche App-Store-Seiten von YAZIO, MyFitnessPal, FDDB, Lifesum, Zanadio und Noom (Bilder, Stand September 2026) ·
+    Lebensmitteldaten in Happa: <a href="https://blsdb.de" target="_blank" rel="noopener">Bundeslebensmittelschlüssel 4.0</a> (Max Rubner-Institut, CC BY 4.0) und <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">Open Food Facts</a>.
+  </div>
+</div>
+
+<script>
+const APPS = [
+  { name: "YAZIO", c: "#19C8DA", ok: true, price: "gratis · PRO ab 6,99 €/Monat", colors: [["#111418", "Grund"], ["#19C8DA", "Türkis"], ["#F06BB3", "Pink"]],
+    look: "Dunkles UI, runde Karten, verspieltes Maskottchen (flauschiges Monster, im Icon mit Trachtenhut und Brezel).",
+    home: "Ring „1.391 übrig“, gegessen/verbrannt, Makro-Balken, Mahlzeiten mit Plus-Taste; Tabs: Tagebuch · Rezepte · Fasten · Profil.",
+    motiv: "Serien-Flamme, Lebensmittel-Etiketten („Viel Eiweiß“, „Stark zuckerhaltig“), Fasten-Timer, Wasser-Gläser; Werbung mit Vorher-Nachher-Fotos.",
+    ki: "Ja – Foto-Erkennung mit „KI“-Abzeichen, Barcode gratis." },
+  { name: "MyFitnessPal", mono: "M", c: "#0066EE", ok: true, price: "gratis · Premium ab 4,17 €/Monat", colors: [["#0066EE", "Blau"], ["#F4F6FB", "Grund"], ["#7B61FF", "Violett"]],
+    look: "Hell und sachlich, viel Weißraum; Werbung im Blau-Violett-Verlauf.",
+    home: "Wochenleiste mit Häkchen, Kalorien als Balken („976 / 2.074“), Makro-Balken, Tagebuch; Tabs Heute · Fortschritt · Mehr plus schwebende Plus-Taste.",
+    motiv: "Abgehakte Tage, anpassbare Dashboards, Makro-Diagramme, Community („280 Mio. Nutzer“).",
+    ki: "Auf den Bildern nicht zu sehen (Meal Scan laut Hersteller nur Premium); Barcode." },
+  { name: "FDDB", c: "#00628F", ok: true, price: "gratis · Premium ab 3,33 €/Monat", colors: [["#00628F", "Petrol"], ["#9CCBF0", "Hellblau"], ["#FFFFFF", "Karten"]],
+    look: "2025 komplett neu: Hellblau und Petrol, weiße Karten. Der Artikel-Punkt „einfaches Design“ ist überholt.",
+    home: "„Dein Tag“: Halbkreis „490 übrig“, gegessen/verbrannt/Ziel, Makro-Balken und Makro-Torte; Tabs Dashboard · Tagebuch · + · Rezepte · Mehr.",
+    motiv: "Diätbericht mit Gewichtskurve, BMI und Zielerreichung in %, Fasten mit Phasen, Rezepte, Apple Watch.",
+    ki: "Ja – „KI Scanner“ beschriftet die Bestandteile direkt im Foto." },
+  { name: "Lifesum", c: "#1E7B34", ok: true, price: "gratis · Premium ab 8,33 €/Monat", colors: [["#1E7B34", "Grün"], ["#B8F36A", "Neongelb"], ["#F7F5EF", "Grund"]],
+    look: "Das auffälligste Design: Grün→Neongelb-Verlauf, Serifen-Logo, große Food-Fotos.",
+    home: "Halbkreis „Übrig heute 856“, Makro-Karten, KI-Begrüßung, Protokoll mit Fotos; Tabs Tagebuch · Fortschritt · + · Diäten · Rezepte.",
+    motiv: "Life Score als Tacho (110/150), Streak mit Rekord (36 / 62 Tage), Punktzahl je Lebensmittel mit Plus/Minus, Diätpläne.",
+    ki: "Ja – Foto, Barcode und zusätzlich Eintragen per Text und Sprache." },
+  { name: "Zanadio", c: "#2A9D86", ok: true, price: "gratis auf Rezept (DiGA)", colors: [["#2A9D86", "Petrol-Grün"], ["#D63370", "Magenta"], ["#FFFFFF", "Karten"]],
+    look: "Medizinisch-seriös: „Die digitale Adipositas-Therapie“, klinisch belegt, BfArM-gelistet.",
+    home: "12-Monats-Programm als Kachelraster, spätere Module mit Schlössern; Tagebuch mit Wochenbalken und Ampel.",
+    motiv: "Tagesziele zum Abhaken, Aktivitätsringe, Coach-Chat mit Fachleuten, Wochenbericht, „Akademie“-Lektionen.",
+    ki: "Nein – Ampelsystem statt Kalorienzählen." },
+  { name: "Noom", c: "#FF4B33", ok: false, price: "ca. 50 €/Monat, im Jahresabo 13,67 €/Monat", colors: [["#FF4B33", "Rot-Orange"], ["#C7E6A3", "Salbei"], ["#EBC9DA", "Rosa"], ["#A9DCD3", "Mint"]],
+    look: "Pastellflächen, Serifenschrift, editorial wie ein Magazin.",
+    home: "Lernpfad mit Lektionen (101, 102, 201 …) wie bei Duolingo, Tages-Checkliste (Tagebuch, Wiegen, Bewegung).",
+    motiv: "Prognosekurve „65 kg bis 18. Mai“, Farbsystem Grün/Gelb/Orange, Coach- und Gruppenchat, Erfolgsgeschichten („18 kg verloren“).",
+    ki: "Nein – Barcode und Suche." },
+];
+
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+document.getElementById("apps").innerHTML = APPS.map((a) => `
+  <article class="app">
+    <div class="app-head">
+      <div class="mono" style="background:${a.c}">${a.mono || a.name[0]}</div>
+      <div class="app-name">${a.name}</div>
+      <span class="pill ${a.ok ? "ok" : "bad"}">${a.ok ? "wirkt" : "vor allem Marketing"}</span>
+    </div>
+    <div class="swatches">${a.colors.map(([hex, n]) => `<span class="sw"><i style="background:${hex}"></i>${hex} ${n}</span>`).join("")}</div>
+    <dl class="facts">
+      <div><dt>Preis</dt><dd>${esc(a.price)}</dd></div>
+      <div><dt>Look</dt><dd>${esc(a.look)}</dd></div>
+      <div><dt>Start</dt><dd>${esc(a.home)}</dd></div>
+      <div><dt>Motivation</dt><dd>${esc(a.motiv)}</dd></div>
+      <div><dt>KI-Foto</dt><dd>${esc(a.ki)}</dd></div>
+    </dl>
+  </article>`).join("");
+
+// ── Skizzen der Startbildschirme ──
+const W = 150, H = 300;
+const frame = (inner, bg = "var(--phone)") => `<svg viewBox="0 0 ${W} ${H}" role="img">
+  <rect x="3" y="3" width="${W - 6}" height="${H - 6}" rx="24" fill="${bg}" stroke="var(--phone-line)" stroke-width="2"/>
+  <rect x="55" y="11" width="40" height="9" rx="4.5" fill="var(--phone-line)"/>${inner}</svg>`;
+const bar = (x, y, w, c, p = .5) => `<rect x="${x}" y="${y}" width="${w}" height="5" rx="2.5" fill="var(--phone-line)"/><rect x="${x}" y="${y}" width="${w * p}" height="5" rx="2.5" fill="${c}"/>`;
+const line = (x, y, w, c = "var(--phone-line)") => `<rect x="${x}" y="${y}" width="${w}" height="5" rx="2.5" fill="${c}"/>`;
+const card = (y, h, fill = "var(--surface)") => `<rect x="12" y="${y}" width="126" height="${h}" rx="10" fill="${fill}" stroke="var(--phone-line)"/>`;
+const meal = (y, c) => `${card(y, 26)}<rect x="19" y="${y + 6}" width="14" height="14" rx="4" fill="${c}" opacity=".5"/>${line(38, y + 8, 50)}${line(38, y + 15, 30)}<circle cx="124" cy="${y + 13}" r="7" fill="none" stroke="${c}" stroke-width="2"/>`;
+const ring = (cx, cy, r, c, p, sw = 9) => { const L = 2 * Math.PI * r; return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--phone-line)" stroke-width="${sw}"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${L * p} ${L}" transform="rotate(-90 ${cx} ${cy})"/>`; };
+const arc = (cx, cy, r, c, p, sw = 9) => { const L = Math.PI * r; return `<path d="M${cx - r} ${cy} A${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="var(--phone-line)" stroke-width="${sw}" stroke-linecap="round"/><path d="M${cx - r} ${cy} A${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${L * p} ${L}"/>`; };
+const tabbar = (n, c, center = false) => { let s = `<rect x="12" y="266" width="126" height="22" rx="11" fill="var(--surface)" stroke="var(--phone-line)"/>`; for (let i = 0; i < n; i++) { const x = 12 + (126 / n) * (i + .5); s += center && i === Math.floor(n / 2) ? `<circle cx="${x}" cy="277" r="8" fill="${c}"/>` : `<circle cx="${x}" cy="277" r="3.5" fill="${i === 0 ? c : "var(--phone-line)"}"/>`; } return s; };
+const txt = (x, y, t, size = 13, c = "var(--ink)", w = 700) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Familjen Grotesk, Arial" font-size="${size}" font-weight="${w}" fill="${c}">${t}</text>`;
+
+const SCREENS = [
+  { name: "YAZIO", note: "Ring „übrig“, dunkles UI", svg: frame(
+      `${ring(75, 78, 30, "#19C8DA", .62)}${txt(75, 83, "1.391", 13, "#fff")}${bar(20, 122, 32, "#19C8DA", .3)}${bar(59, 122, 32, "#F06BB3", .5)}${bar(98, 122, 32, "#8b7cf6", .4)}
+       ${[140, 172, 204].map((y) => `<rect x="12" y="${y}" width="126" height="26" rx="10" fill="#1e2429"/><rect x="19" y="${y + 6}" width="14" height="14" rx="4" fill="#19C8DA" opacity=".6"/><rect x="38" y="${y + 8}" width="50" height="5" rx="2.5" fill="#3a434a"/><circle cx="124" cy="${y + 13}" r="7" fill="none" stroke="#19C8DA" stroke-width="2"/>`).join("")}
+       <rect x="12" y="266" width="126" height="22" rx="11" fill="#1e2429"/>${[0, 1, 2, 3].map((i) => `<circle cx="${12 + 31.5 * (i + .5)}" cy="277" r="3.5" fill="${i === 0 ? "#19C8DA" : "#3a434a"}"/>`).join("")}
+       <circle cx="118" cy="30" r="5" fill="#ff8a3d"/>`, "#0f1216") },
+  { name: "MyFitnessPal", note: "Wochenleiste, Balken, schwebendes Plus", svg: frame(
+      `${[0, 1, 2, 3, 4, 5, 6].map((i) => `<circle cx="${22 + i * 17.7}" cy="40" r="5.5" fill="${i < 3 ? "#0066EE" : "none"}" stroke="#0066EE" stroke-opacity="${i < 3 ? 1 : .35}"/>`).join("")}
+       ${card(56, 50)}${line(20, 64, 40)}${bar(20, 78, 110, "#0066EE", .47)}${bar(20, 92, 32, "#1fb8a6", .5)}${bar(59, 92, 32, "#8b5cf6", .45)}${bar(98, 92, 32, "#f59e0b", .45)}
+       ${[116, 146, 176, 206].map((y) => `${card(y, 24)}${line(20, y + 9, 46)}<rect x="104" y="${y + 7}" width="26" height="10" rx="5" fill="#0066EE" opacity=".18"/>`).join("")}
+       <rect x="12" y="266" width="96" height="22" rx="11" fill="var(--surface)" stroke="var(--phone-line)"/>${[0, 1, 2].map((i) => `<circle cx="${12 + 32 * (i + .5)}" cy="277" r="3.5" fill="${i === 0 ? "#0066EE" : "var(--phone-line)"}"/>`).join("")}<circle cx="125" cy="277" r="11" fill="#0066EE"/><path d="M125 272v10M120 277h10" stroke="#fff" stroke-width="2"/>`) },
+  { name: "FDDB", note: "Halbkreis „übrig“, Makro-Torte", svg: frame(
+      `${[0, 1, 2, 3, 4, 5, 6].map((i) => `<circle cx="${22 + i * 17.7}" cy="40" r="6" fill="${i === 4 ? "#00628F" : "none"}" stroke="#00628F" stroke-opacity=".4"/>`).join("")}
+       ${card(54, 92)}${arc(75, 104, 30, "#00628F", .72)}${txt(75, 102, "490", 13)}${line(20, 118, 22)}${line(108, 118, 22)}${bar(20, 132, 32, "#e85d75", .6)}${bar(59, 132, 32, "#f2b33d", .7)}${bar(98, 132, 32, "#3fbf7f", .6)}
+       ${card(154, 74)}<circle cx="46" cy="191" r="22" fill="#f2b33d"/><path d="M46 191 L46 169 A22 22 0 0 1 66 200 Z" fill="#e85d75"/><path d="M46 191 L66 200 A22 22 0 0 1 36 211 Z" fill="#3fbf7f"/><circle cx="46" cy="191" r="9" fill="var(--surface)"/>${line(78, 176, 48)}${line(78, 188, 40)}${line(78, 200, 44)}
+       ${tabbar(5, "#00628F", true)}`) },
+  { name: "Lifesum", note: "Halbkreis, KI-Nachricht, Fotos", svg: frame(
+      `<rect x="3" y="3" width="144" height="130" rx="24" fill="#1E7B34" opacity=".95"/><rect x="3" y="60" width="144" height="73" fill="#B8F36A" opacity=".55"/>
+       ${arc(75, 86, 32, "#f7f5ef", .8)}${txt(75, 84, "856", 14, "#f7f5ef")}
+       ${card(142, 36)}<circle cx="24" cy="160" r="6" fill="#1E7B34"/>${line(36, 152, 90)}${line(36, 162, 70)}${line(36, 171, 50)}
+       ${[186, 218].map((y) => `${card(y, 26)}<rect x="18" y="${y + 4}" width="22" height="18" rx="5" fill="#c9793a" opacity=".7"/>${line(46, y + 8, 60)}${line(46, y + 16, 36)}`).join("")}
+       ${tabbar(5, "#1E7B34", true)}`) },
+  { name: "Zanadio", note: "Programm-Kacheln mit Schlössern", svg: frame(
+      `${line(20, 32, 60, "#2A9D86")}${[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => { const x = 18 + (i % 3) * 40, y = 50 + Math.floor(i / 3) * 40; const open = i < 4; return `<rect x="${x}" y="${y}" width="34" height="34" rx="8" fill="${open ? "#2A9D86" : "var(--phone-line)"}"/>` + (open ? `<path d="M${x + 10} ${y + 17} l5 5 l9 -10" stroke="#fff" stroke-width="2.5" fill="none"/>` : `<rect x="${x + 12}" y="${y + 16}" width="10" height="9" rx="2" fill="var(--phone)"/><path d="M${x + 14} ${y + 16} v-3 a3 3 0 0 1 6 0 v3" stroke="var(--phone)" stroke-width="2" fill="none"/>`); }).join("")}
+       ${card(176, 76)}<rect x="12" y="176" width="126" height="16" rx="8" fill="#D63370"/>${txt(75, 188, "Tagesziele", 10, "#fff")}${[200, 214, 228].map((y, i) => `<rect x="20" y="${y}" width="9" height="9" rx="2" fill="${i < 2 ? "#2A9D86" : "none"}" stroke="#2A9D86"/>${line(36, y + 2, 70)}`).join("")}
+       ${tabbar(4, "#2A9D86")}`) },
+  { name: "Noom", note: "Lernpfad wie bei Duolingo", svg: frame(
+      `<rect x="3" y="3" width="144" height="294" rx="24" fill="#C7E6A3" opacity=".45"/>
+       <path d="M75 50 C 30 70, 30 100, 75 115 S 120 160, 75 180 S 30 225, 75 245" fill="none" stroke="#2A9D86" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 10"/>
+       ${[[75, 50, "#FF4B33"], [44, 92, "#f2b33d"], [98, 140, "#2A9D86"], [52, 205, "var(--phone-line)"], [75, 245, "var(--phone-line)"]].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="13" fill="${c}"/><circle cx="${x}" cy="${y}" r="13" fill="none" stroke="var(--phone)" stroke-width="3"/>`).join("")}
+       ${txt(75, 38, "101 · 102 · 201 …", 9, "var(--muted)", 600)}
+       ${tabbar(4, "#FF4B33")}`) },
+];
+document.getElementById("phones").innerHTML = SCREENS.map((s) => `<div class="phone-card">${s.svg}<b>${s.name}</b><span>${s.note}</span></div>`).join("");
+document.querySelectorAll(".phone-card svg").forEach((svg, i) => svg.setAttribute("aria-label", `Skizze des Startbildschirms von ${SCREENS[i].name}: ${SCREENS[i].note}`));
+
+// ── Motivations-Matrix (nur was auf den Store-Bildern zu sehen ist) ──
+const COLS = ["YAZIO", "MFP", "FDDB", "Lifesum", "Zanadio", "Noom", "Happa"];
+const ROWS = [
+  ["Kalorien „übrig“ als Ring/Tacho", 2, [1, "Balken"], 2, 2, 0, 0, 2],
+  ["KI-Foto-Erkennung", 2, 0, 2, 2, 0, 0, 2],
+  ["Barcode", 2, 2, 2, 2, 0, 2, 2],
+  ["Serie / abgehakte Tage", 2, 2, 0, 2, 1, 1, 2],
+  ["Punktestand / Abzeichen", 1, 0, 0, 2, 0, 0, 2],
+  ["Gewichtskurve", 0, 1, 2, 0, 2, 2, 2],
+  ["Prognose zum Zieldatum", 0, 0, 0, 0, 0, 2, [2, "max. 0,5 kg/Woche"]],
+  ["Lebensmittel-Bewertung / Ampel", 2, 0, 0, 2, 2, 2, 0],
+  ["Coach / Chat", 0, 0, 0, [1, "KI"], 2, 2, 0],
+  ["Lektionen / Programm", 0, 0, 0, [1, "Pläne"], 2, 2, [1, "Tipp des Tages"]],
+  ["Intervallfasten", 2, 2, 2, 2, 0, 0, 0],
+  ["Wasser", 2, 0, 0, 0, 0, 1, 2],
+  ["Rezepte", 2, 0, 2, 2, 0, 0, 0],
+  ["Vorher-Nachher / Nutzerzahlen in der Werbung", 2, 2, 2, 2, 0, 2, 0],
+];
+const dot = (v) => { const [n, note] = Array.isArray(v) ? v : [v, ""]; const cls = n === 2 ? "on" : n === 1 ? "half" : "off"; const label = n === 2 ? "vorhanden" : n === 1 ? "teilweise" : "nicht zu sehen"; return `<i class="d ${cls}" role="img" aria-label="${label}"></i>${note ? `<span class="cell-note">${note}</span>` : ""}`; };
+document.getElementById("matrix").innerHTML =
+  `<thead><tr><th scope="col">Mechanismus</th>${COLS.map((c) => `<th scope="col" class="${c === "Happa" ? "happa" : ""}">${c}</th>`).join("")}</tr></thead>` +
+  `<tbody>${ROWS.map(([label, ...vals]) => `<tr><th scope="row" style="font-weight:400;text-align:left">${label}</th>${vals.map((v, i) => `<td class="${COLS[i] === "Happa" ? "happa" : ""}">${dot(v)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+</script>

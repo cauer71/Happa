@@ -7,7 +7,8 @@ Läuft als Web-App (PWA) vor allem am iPhone, funktioniert aber genauso am PC.
 **Live:** https://happa.auer.page (Anmeldung über Cloudflare Access, Einmal-PIN per E-Mail)
 
 Die Analyse der Vorbild-Apps (YAZIO, MyFitnessPal, FDDB, Lifesum, Zanadio, Noom) steht in
-[`docs/ANALYSE.md`](docs/ANALYSE.md).
+[`docs/ANALYSE.md`](docs/ANALYSE.md), als gestaltete Seite in [`docs/analyse.html`](docs/analyse.html)
+(veröffentlicht: https://claude.ai/artifact/2GAe6UZg1H3Fxpio3o5Bda).
 
 ## Funktionen
 
