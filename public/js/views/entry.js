@@ -2,7 +2,7 @@
 import { useState } from "preact/hooks";
 import { html, cx, haptic, n0, n1, parseNum } from "../util.js";
 import { Icon } from "../icons.js";
-import { openOverlay, closeOverlay, updateEntry, removeEntry, toast } from "../store.js";
+import { openOverlay, closeOverlay, updateEntry, deleteWithUndo, toast } from "../store.js";
 import { Sheet, Seg, Thumb } from "../ui.js";
 import { E, per100Of, makeEntry } from "../nutrition.js";
 import { mealOptions } from "./add.js";
@@ -34,14 +34,14 @@ function EntrySheet({ id, closing, d, entry }) {
   const del = async () => {
     haptic("heavy");
     closeOverlay(id);
-    try { await removeEntry(d, entry[E.id]); toast("Gelöscht", "🗑️"); }
+    try { await deleteWithUndo(d, entry[E.id]); }
     catch (err) { toast(err.message, "⚠️"); }
   };
 
   return html`
     <${Sheet} id=${id} closing=${closing} title="Eintrag"
       footer=${html`<div class="row" style="gap:10px">
-        <button class="btn btn-danger" aria-label="Löschen" onClick=${del}>${Icon.trash()}</button>
+        <button class="btn btn-danger" aria-label="Eintrag löschen" onClick=${del}>${Icon.trash()}</button>
         <button class="btn btn-primary grow" disabled=${!changed || busy} onClick=${save}>Speichern</button></div>`}>
       <div class="food-hero">
         <${Thumb} id=${entry[E.id]} emoji=${entry[E.emoji]} cls="food-emoji"/>
@@ -49,16 +49,16 @@ function EntrySheet({ id, closing, d, entry }) {
           aria-label="Bezeichnung" onInput=${(e) => setName(e.currentTarget.value)}/>
         <div class="muted" style="font-size:13px">${SOURCES[entry[E.src]] || ""}</div>
       </div>
-      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      <${Seg} label="Mahlzeit" options=${mealOptions} value=${meal} onChange=${setMeal}/>
       ${hasGrams && html`
         <label class="label" for="e-grams">Menge</label>
         <div class="stepper">
-          <button class="icon-btn fill" aria-label="Weniger" onClick=${() => { haptic(); setText(String(Math.max(1, (grams || 0) - 10))); }}>−</button>
+          <button class="icon-btn fill" aria-label="10 g weniger" onClick=${() => { haptic(); setText(String(Math.max(1, (grams || 0) - 10))); }}>−</button>
           <div class="unit-input grow">
             <input id="e-grams" class="field num" inputmode="decimal" value=${text} onInput=${(e) => setText(e.currentTarget.value)} onFocus=${(e) => e.currentTarget.select()}/>
             <span>g</span>
           </div>
-          <button class="icon-btn fill" aria-label="Mehr" onClick=${() => { haptic(); setText(String((grams || 0) + 10)); }}>+</button>
+          <button class="icon-btn fill" aria-label="10 g mehr" onClick=${() => { haptic(); setText(String((grams || 0) + 10)); }}>+</button>
         </div>`}
       <div class="nutri">
         <div><b>${n0(next[E.kcal])}</b><span>kcal</span></div>

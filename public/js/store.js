@@ -3,7 +3,7 @@
 
 import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
 import { api } from "./api.js";
-import { today, addDays, storage, uid, haptic } from "./util.js";
+import { today, addDays, storage, uid, haptic, reduceMotion } from "./util.js";
 import { goals, earnedBadges, BADGES, E } from "./nutrition.js";
 import { putThumb, deleteThumb, clearThumbs } from "./thumbs.js";
 
@@ -14,10 +14,12 @@ export const state = {
   profile: {},
   days: {},               // JJJJMMTT → { d, log, water, weight, ai }
   selected: today(),
+  today: today(),         // wechselt, wenn die App über Mitternacht offen bleibt
   streak: { current: 0, best: 0 },
   serverStreak: 0,
   logged: new Set(),      // Tage mit Einträgen (letzte ~60 Tage + lokale Änderungen)
   lastWeight: null,       // { d, w }
+  weights: null,          // [[d, kg], …] – einmal pro Sitzung geladen
   aiLimit: 40,
   tab: "heute",
   overlays: [],           // [{ id, render, closing }]
@@ -47,7 +49,7 @@ export function useStore() {
 }
 
 export function setTab(tab) {
-  if (state.tab === tab) { scrollTo({ top: 0, behavior: "smooth" }); return; }
+  if (state.tab === tab) { scrollTo({ top: 0, behavior: reduceMotion() ? "auto" : "smooth" }); return; }
   haptic();
   set({ tab });
   scrollTo(0, 0);
@@ -58,36 +60,69 @@ export const emptyDay = (d) => ({ d, log: [], water: 0, weight: null, ai: 0 });
 const putDay = (day) => set({ days: { ...state.days, [day.d]: day } });
 
 // ── Overlays (Sheets, Kamera) mit Zurück-Taste ──
+// stack: Overlays mit eigenem Verlaufseintrag, in Öffnungsreihenfolge.
+let stack = [];
 let ignorePop = 0;
+let replaceNext = false;
+
 export function openOverlay(render) {
   const id = uid();
   set({ overlays: [...state.overlays, { id, render, closing: false }] });
-  history.pushState({ overlay: id }, "");
+  if (replaceNext) { replaceNext = false; history.replaceState({ overlay: id }, ""); }
+  else history.pushState({ overlay: id }, "");
+  stack.push(id);
   return id;
 }
-export function closeOverlay(id, fromPop = false) {
+
+function markClosing(ids) {
+  set({ overlays: state.overlays.map((x) => (ids.includes(x.id) ? { ...x, closing: true } : x)) });
+  setTimeout(() => set({ overlays: state.overlays.filter((x) => !ids.includes(x.id)) }), 320);
+}
+
+// replace: Das nächste openOverlay übernimmt den Verlaufseintrag (Sheet → Kamera usw.)
+export function closeOverlay(id, { fromPop = false, replace = false } = {}) {
   const o = state.overlays.find((x) => x.id === id);
   if (!o || o.closing) return;
-  set({ overlays: state.overlays.map((x) => (x.id === id ? { ...x, closing: true } : x)) });
-  setTimeout(() => set({ overlays: state.overlays.filter((x) => x.id !== id) }), 320);
-  if (!fromPop && history.state?.overlay === id) { ignorePop++; history.back(); }
+  markClosing([id]);
+  const idx = stack.lastIndexOf(id);
+  if (idx < 0) return;
+  stack.splice(idx, 1);
+  if (fromPop) return;
+  if (replace && idx === stack.length) {
+    replaceNext = true;
+    // Folgt doch kein neues Overlay, den Eintrag wieder entfernen
+    setTimeout(() => { if (replaceNext) { replaceNext = false; ignorePop++; history.back(); } }, 0);
+    return;
+  }
+  if (idx === stack.length) { ignorePop++; history.back(); }
 }
-export const closeAll = () => [...state.overlays].reverse().forEach((o) => closeOverlay(o.id));
+
+export function closeAll() {
+  const open = state.overlays.filter((o) => !o.closing).map((o) => o.id);
+  if (open.length) markClosing(open);
+  const n = stack.length;
+  stack = [];
+  if (n) { ignorePop++; history.go(-n); }
+}
+
 addEventListener("popstate", () => {
   if (ignorePop) { ignorePop--; return; }
-  const top = [...state.overlays].reverse().find((o) => !o.closing);
-  if (top) closeOverlay(top.id, true);
+  const top = stack[stack.length - 1];
+  if (top) closeOverlay(top, { fromPop: true });
 });
 
 // ── Mitteilungen ──
 let toastTimer;
-export function toast(text, icon = "✓") {
+export function toast(text, icon = "✓", action = null) {
   clearTimeout(toastTimer);
-  set({ toast: { id: uid(), text, icon, closing: false } });
-  toastTimer = setTimeout(() => {
-    set({ toast: state.toast && { ...state.toast, closing: true } });
-    toastTimer = setTimeout(() => set({ toast: null }), 300);
-  }, 2600);
+  set({ toast: { id: uid(), text, icon, action, closing: false } });
+  toastTimer = setTimeout(dismissToast, action ? 5000 : 2600);
+}
+export function dismissToast() {
+  clearTimeout(toastTimer);
+  if (!state.toast) return;
+  set({ toast: { ...state.toast, closing: true } });
+  toastTimer = setTimeout(() => set({ toast: null }), 300);
 }
 export const celebrate = (badge) => set({ celebrate: badge });
 
@@ -96,15 +131,15 @@ export async function boot() {
   try {
     const d = today();
     const me = await api(`/me?d=${d}`);
-    const logged = new Set(me.logged);
     set({
       email: me.email,
       profile: me.profile || {},
       days: { [d]: me.day },
       selected: d,
+      today: d,
       serverStreak: me.streak.current,
       streak: me.streak,
-      logged,
+      logged: new Set(me.logged),
       lastWeight: me.lastWeight,
       aiLimit: me.aiLimit,
       phase: me.profile && me.profile.startWeight ? "app" : "onboarding",
@@ -114,20 +149,50 @@ export async function boot() {
   }
 }
 
+// Bleibt die installierte App über Mitternacht offen, springt "Heute" beim
+// Zurückkehren auf den neuen Tag – sonst landen Einträge beim Vortag.
+function checkNewDay() {
+  if (document.visibilityState === "hidden" || state.phase !== "app") return;
+  const t = today();
+  if (t === state.today) return;
+  const wasToday = state.selected === state.today;
+  set({ today: t });
+  if (wasToday) selectDay(t);
+  recomputeStreak();
+}
+document.addEventListener("visibilitychange", checkNewDay);
+addEventListener("pageshow", checkNewDay);
+addEventListener("focus", checkNewDay);
+
+// Laufende Änderungen pro Tag: Solange etwas unterwegs ist, überschreiben Ladevorgänge
+// den lokalen Stand nicht.
+const pending = {};
+const seq = {};
+const waterTimers = {};
+const busy = (d) => (pending[d] || 0) > 0 || !!waterTimers[d];
+
 export async function loadDay(d, force = false) {
   if (state.days[d] && !force) return state.days[d];
   const { days } = await api(`/days?from=${d}&to=${d}`);
   const day = days[0] || emptyDay(d);
-  putDay(day);
-  return day;
+  if (!busy(d)) putDay(day);
+  return state.days[d];
 }
 
+// Lädt nur die Tage eines Zeitraums, die noch fehlen
 export async function loadRange(from, to) {
-  const { days } = await api(`/days?from=${from}&to=${to}`);
+  let a = from, b = to;
+  while (a <= b && state.days[a]) a = addDays(a, 1);
+  while (b >= a && state.days[b]) b = addDays(b, -1);
+  if (a > b) return [];
+  const { days } = await api(`/days?from=${a}&to=${b}`);
   const map = { ...state.days };
-  for (let d = from; d <= to; d = addDays(d, 1)) if (!map[d]) map[d] = emptyDay(d);
-  for (const day of days) map[day.d] = day;
-  set({ days: map });
+  for (let d = a; d <= b; d = addDays(d, 1)) if (!map[d]) map[d] = emptyDay(d);
+  for (const day of days) if (!busy(day.d)) map[day.d] = day;
+  const logged = new Set(state.logged);
+  for (let d = a; d <= b; d = addDays(d, 1)) (map[d].log.length ? logged.add(d) : logged.delete(d));
+  set({ days: map, logged });
+  recomputeStreak();
   return days;
 }
 
@@ -153,90 +218,143 @@ function markLogged(day) {
   recomputeStreak();
 }
 
-// ── Einträge ──
-export async function addEntries(d, entries, thumb) {
-  const before = state.days[d] || emptyDay(d);
-  const optimistic = { ...before, log: [...before.log, ...entries] };
-  putDay(optimistic);
-  markLogged(optimistic);
+// Gemeinsamer Ablauf für Eintrags-Änderungen: sofort anzeigen, Serverstand übernehmen,
+// sobald nichts mehr unterwegs ist; bei Fehlern nur diese eine Änderung zurücknehmen.
+async function mutateDay(d, apply, undo, request) {
+  const my = (seq[d] = (seq[d] || 0) + 1);
+  pending[d] = (pending[d] || 0) + 1;
+  const opt = apply(state.days[d] || emptyDay(d));
+  putDay(opt);
+  markLogged(opt);
   try {
-    let day = optimistic;
-    for (const entry of entries) {
-      day = (await api(`/days/${d}/entries`, { method: "POST", body: entry })).day;
-      if (thumb) putThumb(entry[E.id], thumb);
+    const res = await request();
+    pending[d]--;
+    if (!pending[d] && seq[d] === my) {
+      const cur = state.days[d];
+      const day = { ...res.day, water: waterTimers[d] ? cur.water : res.day.water };
+      putDay(day);
+      markLogged(day);
     }
-    putDay(day);
-    markLogged(day);
-    return day;
+    return res;
   } catch (err) {
-    putDay(before);
-    markLogged(before);
+    pending[d]--;
+    const back = undo(state.days[d] || emptyDay(d));
+    putDay(back);
+    markLogged(back);
     throw err;
   }
+}
+
+// Mehrere Einträge in EINER Anfrage (alles oder nichts). Wiederholungen mit denselben
+// IDs legt der Server nicht doppelt an.
+export async function addEntries(d, entries, thumb) {
+  const ids = new Set(entries.map((e) => e[E.id]));
+  const res = await mutateDay(
+    d,
+    (day) => ({ ...day, log: [...day.log.filter((e) => !ids.has(e[E.id])), ...entries] }),
+    (day) => ({ ...day, log: day.log.filter((e) => !ids.has(e[E.id])) }),
+    () => api(`/days/${d}/entries`, { method: "POST", body: entries }),
+  );
+  if (thumb) entries.forEach((e) => putThumb(e[E.id], thumb));
+  return res.day;
 }
 
 export async function updateEntry(d, entry) {
-  const before = state.days[d];
-  putDay({ ...before, log: before.log.map((e) => (e[E.id] === entry[E.id] ? entry : e)) });
-  try {
-    const { day } = await api(`/days/${d}/entries/${entry[E.id]}`, { method: "PUT", body: entry });
-    putDay(day);
-  } catch (err) {
-    putDay(before);
-    throw err;
-  }
+  const old = (state.days[d]?.log || []).find((e) => e[E.id] === entry[E.id]);
+  await mutateDay(
+    d,
+    (day) => ({ ...day, log: day.log.map((e) => (e[E.id] === entry[E.id] ? entry : e)) }),
+    (day) => ({ ...day, log: day.log.map((e) => (e[E.id] === entry[E.id] && old ? old : e)) }),
+    () => api(`/days/${d}/entries/${entry[E.id]}`, { method: "PUT", body: entry }),
+  );
 }
 
 export async function removeEntry(d, id) {
-  const before = state.days[d];
-  const optimistic = { ...before, log: before.log.filter((e) => e[E.id] !== id) };
-  putDay(optimistic);
-  markLogged(optimistic);
-  try {
-    const { day } = await api(`/days/${d}/entries/${id}`, { method: "DELETE" });
-    putDay(day);
-    markLogged(day);
-    deleteThumb(id);
-  } catch (err) {
-    putDay(before);
-    markLogged(before);
-    throw err;
-  }
+  const log = state.days[d]?.log || [];
+  const index = log.findIndex((e) => e[E.id] === id);
+  const old = log[index];
+  await mutateDay(
+    d,
+    (day) => ({ ...day, log: day.log.filter((e) => e[E.id] !== id) }),
+    (day) => {
+      if (!old || day.log.some((e) => e[E.id] === id)) return day;
+      const next = [...day.log];
+      next.splice(Math.min(index, next.length), 0, old);
+      return { ...day, log: next };
+    },
+    () => api(`/days/${d}/entries/${id}`, { method: "DELETE" }),
+  );
+  return old;
+}
+
+// Löschen mit "Rückgängig" im Hinweis; das Vorschaubild bleibt bis dahin erhalten.
+export async function deleteWithUndo(d, id) {
+  const entry = await removeEntry(d, id);
+  let undone = false;
+  const timer = setTimeout(() => { if (!undone) deleteThumb(id); }, 6000);
+  toast("Eintrag gelöscht", "🗑️", {
+    label: "Rückgängig",
+    run: () => {
+      undone = true;
+      clearTimeout(timer);
+      if (entry) addEntries(d, [entry]).catch((err) => toast(err.message, "⚠️"));
+    },
+  });
 }
 
 // Wasser: schnelles Tippen wird gebündelt, gespeichert wird der letzte Stand.
-const waterTimers = {};
+// Die Antwort des Servers überschreibt den lokalen Wert nicht (neuere Tipper gewinnen).
 export function setWater(d, ml) {
   const day = state.days[d] || emptyDay(d);
   putDay({ ...day, water: Math.max(0, ml) });
   clearTimeout(waterTimers[d]);
   waterTimers[d] = setTimeout(async () => {
+    const value = state.days[d].water;
     try {
-      const res = await api(`/days/${d}`, { method: "PUT", body: { water: state.days[d].water } });
-      putDay({ ...res.day, log: state.days[d].log });
+      await api(`/days/${d}`, { method: "PUT", body: { water: value } });
+      if (state.days[d].water === value) delete waterTimers[d];
       checkBadges(d);
-    } catch (err) { toast(err.message, "⚠️"); }
+    } catch (err) {
+      delete waterTimers[d];
+      toast(err.message, "⚠️");
+    }
   }, 700);
 }
 
-export async function setWeight(d, kg) {
-  const { day } = await api(`/days/${d}`, { method: "PUT", body: { weight: kg } });
-  putDay(day);
-  if (kg != null && (!state.lastWeight || d >= state.lastWeight.d)) set({ lastWeight: { d, w: kg } });
-  if (kg == null && state.lastWeight?.d === d) {
-    const { weights } = await api("/weights");
-    const last = weights[weights.length - 1];
-    set({ lastWeight: last ? { d: last[0], w: last[1] } : null });
-  }
-  return day;
+export async function loadWeights() {
+  if (state.weights) return state.weights;
+  const { weights } = await api("/weights");
+  set({ weights });
+  return weights;
 }
 
-// ── Profil ──
+export async function setWeight(d, kg) {
+  const res = await api(`/days/${d}`, { method: "PUT", body: { weight: kg } });
+  putDay({ ...(state.days[d] || res.day), weight: res.day.weight });
+  if (state.weights) {
+    const list = state.weights.filter(([x]) => x !== d);
+    if (kg != null) list.push([d, res.day.weight]);
+    set({ weights: list.sort((a, b) => a[0] - b[0]) });
+  }
+  if (kg != null && (!state.lastWeight || d >= state.lastWeight.d)) set({ lastWeight: { d, w: res.day.weight } });
+  if (kg == null && "lastWeight" in res) set({ lastWeight: res.lastWeight });
+  return res.day;
+}
+
+// ── Profil: nur die Änderung wird geschickt, der Server führt zusammen ──
 export async function saveProfile(patch) {
-  const profile = { ...state.profile, ...patch };
-  set({ profile });
-  await api("/profile", { method: "PUT", body: profile });
-  return profile;
+  const before = state.profile;
+  const merged = { ...before, ...patch };
+  for (const k of Object.keys(patch)) if (patch[k] === null) delete merged[k];
+  set({ profile: merged });
+  try {
+    const { profile } = await api("/profile", { method: "PUT", body: patch });
+    set({ profile });
+    return profile;
+  } catch (err) {
+    set({ profile: before });
+    throw err;
+  }
 }
 
 export const currentWeight = () => state.lastWeight?.w || state.profile.startWeight || 70;
@@ -260,9 +378,9 @@ export async function checkBadges(d = state.selected, extra = {}) {
   const have = state.profile.badges || {};
   const fresh = earned.filter((id) => !have[id]);
   if (!fresh.length) return;
-  const badges = { ...have };
+  const badges = {};
   for (const id of fresh) badges[id] = today();
-  try { await saveProfile({ badges }); } catch { /* nächster Versuch beim nächsten Mal */ }
+  try { await saveProfile({ badges: { ...have, ...badges } }); } catch { return; /* nächstes Mal */ }
   celebrate(BADGES.find((b) => b.id === fresh[0]));
 }
 
@@ -276,8 +394,12 @@ export function pushRecent(food, grams) {
   storage.set("recent", list.slice(0, 24));
 }
 
-export async function deleteAccount() {
-  await api("/me", { method: "DELETE" });
+export async function clearLocalData() {
   storage.set("recent", []);
   await clearThumbs();
+}
+
+export async function deleteAccount() {
+  await api("/me", { method: "DELETE" });
+  await clearLocalData();
 }

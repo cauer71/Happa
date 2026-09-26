@@ -2,7 +2,7 @@
 import { useState } from "preact/hooks";
 import { html, cx, haptic, n0, n1, parseNum, initials, today } from "../util.js";
 import { Icon } from "../icons.js";
-import { useStore, openOverlay, closeOverlay, saveProfile, toast, currentGoals, currentWeight, deleteAccount, state } from "../store.js";
+import { useStore, openOverlay, closeOverlay, saveProfile, toast, currentGoals, currentWeight, deleteAccount, clearLocalData, state } from "../store.js";
 import { Sheet, Seg, NavBar, useScrolled } from "../ui.js";
 import { ACTIVITY, SEXES, PACES, plan, bmi } from "../nutrition.js";
 
@@ -70,7 +70,7 @@ export function ProfileView() {
           <div>
             <div class="section-title">Darstellung</div>
             <section class="card">
-              <${Seg} options=${[{ value: "auto", label: "Automatisch" }, { value: "light", label: "Hell" }, { value: "dark", label: "Dunkel" }]}
+              <${Seg} label="Erscheinungsbild" options=${[{ value: "auto", label: "Automatisch" }, { value: "light", label: "Hell" }, { value: "dark", label: "Dunkel" }]}
                 value=${p.theme || "auto"} onChange=${(v) => saveProfile({ theme: v }).catch((e) => toast(e.message, "⚠️"))}/>
             </section>
           </div>
@@ -81,9 +81,9 @@ export function ProfileView() {
               <a class="list-row" href="/api/export" download="happa-export.json" style="color:inherit;text-decoration:none">
                 <span class="list-icon" style="background:#34c759">${Icon.download()}</span><span class="grow">Daten exportieren</span><span class="chev">${Icon.chevron()}</span>
               </a>
-              <a class="list-row" href="/cdn-cgi/access/logout" style="color:inherit;text-decoration:none">
+              <button class="list-row" onClick=${async () => { haptic(); await clearLocalData().catch(() => {}); location.href = "/cdn-cgi/access/logout"; }}>
                 <span class="list-icon" style="background:#8e8e93">${Icon.logout()}</span><span class="grow">Abmelden</span><span class="chev">${Icon.chevron()}</span>
-              </a>
+              </button>
               <button class="list-row" onClick=${() => { haptic(); openDelete(); }}>
                 <span class="list-icon" style="background:var(--danger)">${Icon.trash()}</span><span class="grow" style="color:var(--danger)">Konto und Daten löschen</span>
               </button>
@@ -134,22 +134,23 @@ function GoalsSheet({ id, closing }) {
         ${auto.floored && html`<div class="muted" style="font-size:13px;margin-top:8px">Aus Sicherheitsgründen plant Happa nicht unter ${state.profile.sex === "m" ? "1.500" : "1.200"} kcal.</div>`}
       </div>
       <label class="label">Kalorienziel</label>
-      <${Seg} options=${[{ value: false, label: "Automatisch" }, { value: true, label: "Eigenes Ziel" }]} value=${custom} onChange=${setCustom}/>
-      ${custom && html`<div class="unit-input" style="margin-top:10px"><input class="field num" inputmode="numeric" value=${kcal} onInput=${(e) => setKcal(e.currentTarget.value)} aria-label="Eigenes Kalorienziel"/><span>kcal</span></div>`}
+      <${Seg} label="Kalorienziel" options=${[{ value: false, label: "Automatisch" }, { value: true, label: "Eigenes Ziel" }]} value=${custom} onChange=${setCustom}/>
+      ${custom && html`<div class="unit-input" style="margin-top:10px"><input class="field num" inputmode="numeric" value=${kcal} onInput=${(e) => setKcal(e.currentTarget.value)} aria-label="Eigenes Kalorienziel"/><span>kcal</span></div>
+        ${!valid && html`<div class="field-hint">Bitte ein Ziel zwischen 1.000 und 6.000 kcal eingeben.</div>`}`}
 
       <label class="label">Nährstoffverteilung</label>
       <div class="choices">
         ${SPLITS.map((x) => html`
-          <button class=${cx("choice", JSON.stringify(split) === JSON.stringify(x.split) && "on")} onClick=${() => { haptic(); setSplit(x.split); }}>
+          <button class=${cx("choice", JSON.stringify(split) === JSON.stringify(x.split) && "on")} aria-pressed=${JSON.stringify(split) === JSON.stringify(x.split)} onClick=${() => { haptic(); setSplit(x.split); }}>
             <div class="grow"><b>${x.name}</b><small>${x.desc} · KH ${x.split.carbs} % · Eiweiß ${x.split.protein} % · Fett ${x.split.fat} %</small></div>
           </button>`)}
       </div>
 
       <label class="label">Wasser pro Tag</label>
       <div class="stepper">
-        <button class="icon-btn fill" aria-label="Weniger" onClick=${() => { haptic(); setWater(Math.max(1000, water - 250)); }}>−</button>
+        <button class="icon-btn fill" aria-label="250 ml weniger" onClick=${() => { haptic(); setWater(Math.max(1000, water - 250)); }}>−</button>
         <div class="field num center grow" style="display:grid;place-items:center;font-weight:700">${n1(water / 1000)} l</div>
-        <button class="icon-btn fill" aria-label="Mehr" onClick=${() => { haptic(); setWater(Math.min(5000, water + 250)); }}>+</button>
+        <button class="icon-btn fill" aria-label="250 ml mehr" onClick=${() => { haptic(); setWater(Math.min(5000, water + 250)); }}>+</button>
       </div>
     </${Sheet}>`;
 }
@@ -177,12 +178,17 @@ function TargetSheet({ id, closing }) {
     <${Sheet} id=${id} closing=${closing} title="Zielgewicht" footer=${html`<button class="btn btn-primary block" disabled=${!valid || busy} onClick=${save}>Speichern</button>`}>
       <label class="label">Zielgewicht</label>
       <div class="unit-input"><input class="field num" inputmode="decimal" value=${goal} onInput=${(e) => setGoal(e.currentTarget.value)} aria-label="Zielgewicht"/><span>kg</span></div>
-      ${!valid && Number.isFinite(gw) && html`<div class="info-box warn">⚠️ Ein Zielgewicht unter ${n1(minGoal)} kg läge im Untergewicht (BMI unter 18,5).</div>`}
+      ${Number.isFinite(gw) && gw < minGoal && html`<div class="info-box warn">⚠️ Ein Zielgewicht unter ${n1(minGoal)} kg läge im Untergewicht (BMI unter 18,5).</div>`}
+      ${Number.isFinite(gw) && gw > 400 && html`<div class="field-hint">Bitte ein Gewicht bis 400 kg eingeben.</div>`}
       <label class="label">Tempo</label>
       <div class="choices">
-        ${PACES.map((x) => html`<button class=${cx("choice", pace === x.v && "on")} onClick=${() => { haptic(); setPace(x.v); }}><div class="grow"><b>${x.name}</b><small>${x.desc}</small></div></button>`)}
+        ${PACES.map((x) => html`<button class=${cx("choice", pace === x.v && "on")} aria-pressed=${pace === x.v} onClick=${() => { haptic(); setPace(x.v); }}><div class="grow"><b>${x.name}</b><small>${x.desc}</small></div></button>`)}
       </div>
-      ${preview && preview.mode !== "keep" && html`<div class="info-box">📅 Neues Tagesziel: <b>${n0(preview.kcal)} kcal</b>. Ziel voraussichtlich erreicht im ${new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(preview.eta)}.</div>`}
+      ${preview && preview.mode !== "keep" && (p.kcalGoal
+        ? html`<div class="info-box">🎯 Dein eigenes Kalorienziel (${n0(p.kcalGoal)} kcal) bleibt aktiv. Unter „Kalorienziel“ kannst du auf automatisch umstellen.</div>`
+        : preview.eta
+          ? html`<div class="info-box">📅 Neues Tagesziel: <b>${n0(preview.kcal)} kcal</b>. Ziel voraussichtlich erreicht im ${new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(preview.eta)}.</div>`
+          : html`<div class="info-box warn">An der Sicherheitsgrenze von ${p.sex === "m" ? "1.500" : "1.200"} kcal reicht das Kaloriendefizit nicht – mehr Bewegung hilft hier am meisten.</div>`)}
     </${Sheet}>`;
 }
 
@@ -194,7 +200,9 @@ function BodySheet({ id, closing }) {
   const [busy, setBusy] = useState(false);
   const born = parseNum(v.born), height = parseNum(v.height);
   const year = new Date().getFullYear();
-  const valid = born >= year - 100 && born <= year - 14 && height >= 120 && height <= 230;
+  const bornOk = born >= year - 100 && born <= year - 18;
+  const heightOk = height >= 120 && height <= 230;
+  const valid = bornOk && heightOk;
   const save = async () => {
     setBusy(true);
     try { await saveProfile({ name: v.name.trim(), sex: v.sex, born: Math.round(born), height: Math.round(height), activity: v.activity }); toast("Gespeichert"); closeOverlay(id); }
@@ -205,14 +213,16 @@ function BodySheet({ id, closing }) {
       <label class="label" for="b-name">Name</label>
       <input id="b-name" class="field" value=${v.name} onInput=${(e) => setV({ ...v, name: e.currentTarget.value })}/>
       <label class="label">Geschlecht</label>
-      <${Seg} options=${SEXES.map((x) => ({ value: x.id, label: x.name }))} value=${v.sex} onChange=${(x) => setV({ ...v, sex: x })}/>
+      <${Seg} label="Geschlecht" options=${SEXES.map((x) => ({ value: x.id, label: x.name }))} value=${v.sex} onChange=${(x) => setV({ ...v, sex: x })}/>
       <div class="row" style="gap:10px;align-items:flex-start">
         <div class="grow"><label class="label" for="b-born">Geburtsjahr</label><input id="b-born" class="field num" inputmode="numeric" value=${v.born} onInput=${(e) => setV({ ...v, born: e.currentTarget.value })}/></div>
         <div class="grow"><label class="label" for="b-height">Größe (cm)</label><input id="b-height" class="field num" inputmode="numeric" value=${v.height} onInput=${(e) => setV({ ...v, height: e.currentTarget.value })}/></div>
       </div>
+      ${v.born && !bornOk && html`<div class="field-hint">${born > year - 18 && born <= year ? "Happa ist für Erwachsene gedacht – für Jugendliche gelten andere Richtwerte." : "Bitte ein vierstelliges Geburtsjahr eingeben."}</div>`}
+      ${v.height && !heightOk && html`<div class="field-hint">Bitte die Größe in cm angeben (120–230).</div>`}
       <label class="label">Aktivität</label>
       <div class="choices">
-        ${ACTIVITY.map((a) => html`<button class=${cx("choice", v.activity === a.id && "on")} onClick=${() => { haptic(); setV({ ...v, activity: a.id }); }}><span class="e">${a.e}</span><div class="grow"><b>${a.name}</b><small>${a.desc}</small></div></button>`)}
+        ${ACTIVITY.map((a) => html`<button class=${cx("choice", v.activity === a.id && "on")} aria-pressed=${v.activity === a.id} onClick=${() => { haptic(); setV({ ...v, activity: a.id }); }}><span class="e" aria-hidden="true">${a.e}</span><div class="grow"><b>${a.name}</b><small>${a.desc}</small></div></button>`)}
       </div>
     </${Sheet}>`;
 }

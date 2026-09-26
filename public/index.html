@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Happa</title>
   <meta name="description" content="Happa – Kalorien zählen mit Foto-Erkennung">
-  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Happa">
   <meta name="format-detection" content="telephone=no">
   <link rel="manifest" href="/icons/manifest.webmanifest">
@@ -43,6 +43,28 @@
   <label id="haptic" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>
 
   <noscript>Happa braucht JavaScript.</noscript>
+  <script>
+    // Notbremse: Startet die App nicht (z. B. veraltete Dateien im Cache), nach 15 s
+    // einen Knopf zum sauberen Neuladen anzeigen statt ewig den Startbildschirm.
+    window.__happaWatchdog = setTimeout(function () {
+      var s = document.getElementById("splash");
+      if (!s) return;
+      var box = document.createElement("div");
+      box.style.cssText = "display:grid;gap:12px;justify-items:center;text-align:center;font:15px -apple-system,sans-serif;max-width:280px";
+      box.innerHTML = "<div>Happa startet gerade nicht.</div>";
+      var b = document.createElement("button");
+      b.textContent = "Neu laden";
+      b.style.cssText = "height:44px;padding:0 22px;border:0;border-radius:22px;background:#14b87c;color:#fff;font:600 16px -apple-system,sans-serif";
+      b.onclick = function () {
+        var jobs = [];
+        if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (r) { return Promise.all(r.map(function (x) { return x.unregister(); })); }));
+        if (window.caches) jobs.push(caches.keys().then(function (k) { return Promise.all(k.map(function (x) { return caches.delete(x); })); }));
+        Promise.all(jobs).catch(function () {}).then(function () { location.reload(); });
+      };
+      box.appendChild(b);
+      s.appendChild(box);
+    }, 15000);
+  </script>
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

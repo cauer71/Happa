@@ -10,6 +10,7 @@ import { api } from "../api.js";
 import { openCamera } from "./camera.js";
 
 export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
+const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
 
 export function remainingText(d) {
   const day = state.days[d];
@@ -37,6 +38,9 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
   const [local, setLocal] = useState([]);
   const [products, setProducts] = useState({ q: "", list: [], loading: false, error: null });
   const recent = useMemo(() => recentFoods(), []);
+  const latest = useRef("");
+  const aborter = useRef(null);
+  useEffect(() => () => aborter.current?.abort(), []);
 
   useEffect(() => {
     let alive = true;
@@ -45,17 +49,23 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
     return () => { alive = false; };
   }, [q]);
 
+  // Nur die Antwort auf den zuletzt getippten Begriff zählt; ältere werden abgebrochen.
   const fetchProducts = useMemo(() => debounce(async (term) => {
+    latest.current = term;
+    aborter.current?.abort();
     if (term.trim().length < 3) { setProducts({ q: term, list: [], loading: false }); return; }
+    const ctrl = (aborter.current = new AbortController());
     setProducts((p) => ({ ...p, loading: true }));
     try {
-      const { products: list } = await api(`/food/search?q=${encodeURIComponent(term)}`);
-      setProducts({ q: term, list: list.map(productAsFood), loading: false });
+      const { products: list } = await api(`/food/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal });
+      if (term === latest.current) setProducts({ q: term, list: list.map(productAsFood), loading: false });
     } catch (err) {
+      if (err.name === "AbortError" || term !== latest.current) return;
       setProducts({ q: term, list: [], loading: false, error: err.message });
     }
   }, 450), []);
   useEffect(() => { fetchProducts(q); }, [q]);
+  const productList = products.q === q ? products.list : [];
 
   const quickAdd = async (food) => {
     const entry = makeEntry({ id: uid(), meal, name: food.name, grams: food.grams, per100: food.per100, src: food.src, emoji: food.emoji });
@@ -65,20 +75,22 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
   const pick = (food) => { haptic(); openPortion(food, meal, d); };
 
   const Row = (food, i) => html`
-    <div class="result" key=${food.name + i} role="button" tabindex="0" onClick=${() => pick(food)}>
-      <div class="entry-thumb">${food.image ? html`<img src=${food.image} alt="" loading="lazy" referrerpolicy="no-referrer"
-        onError=${(e) => { e.currentTarget.replaceWith(document.createTextNode(food.emoji)); }}/>` : food.emoji}</div>
-      <div class="grow">
-        <div class="entry-name">${food.name}</div>
-        <div class="entry-sub">${n0(food.per100.kcal)} kcal / 100 g · ${food.grams} g Portion${food.source ? " · " + food.source : ""}</div>
-      </div>
-      <button class="result-add" aria-label=${`${food.name} direkt hinzufügen`}
-        onClick=${(e) => { e.stopPropagation(); haptic(); quickAdd(food); }}>${Icon.plus()}</button>
+    <div class="result" key=${food.name + i}>
+      <button type="button" class="result-main" onClick=${() => pick(food)} aria-label=${`${food.name}, ${n0(food.per100.kcal)} kcal pro 100 g – Menge wählen`}>
+        <div class="entry-thumb" aria-hidden="true">${food.image ? html`<img src=${food.image} alt="" loading="lazy" referrerpolicy="no-referrer"
+          onError=${(e) => { e.currentTarget.replaceWith(document.createTextNode(food.emoji)); }}/>` : food.emoji}</div>
+        <div class="grow">
+          <div class="entry-name">${food.name}</div>
+          <div class="entry-sub">${n0(food.per100.kcal)} kcal / 100 g · ${gramText(food.grams)} g Portion${food.source ? " · " + food.source : ""}</div>
+        </div>
+      </button>
+      <button type="button" class="result-add" aria-label=${`${food.name} direkt hinzufügen (${gramText(food.grams)} g)`}
+        onClick=${() => { haptic(); quickAdd(food); }}>${Icon.plus()}</button>
     </div>`;
 
   return html`
     <${Sheet} id=${id} closing=${closing} title="Hinzufügen" full>
-      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      <${Seg} label="Mahlzeit" options=${mealOptions} value=${meal} onChange=${setMeal}/>
       <div class="search" style="margin-top:12px">
         ${Icon.search()}
         <input type="search" placeholder="Lebensmittel oder Produkt suchen" value=${q}
@@ -89,20 +101,20 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
 
       ${!q && html`
         <div class="quick">
-          <button onClick=${() => { closeOverlay(id); openCamera({ meal, d }); }}>${Icon.camera()}Foto erkennen</button>
-          <button onClick=${() => { closeOverlay(id); openCamera({ meal, d, mode: "barcode" }); }}>${Icon.barcode()}Barcode</button>
+          <button onClick=${() => { closeOverlay(id, { replace: true }); openCamera({ meal, d }); }}>${Icon.camera()}Foto erkennen</button>
+          <button onClick=${() => { closeOverlay(id, { replace: true }); openCamera({ meal, d, mode: "barcode" }); }}>${Icon.barcode()}Barcode</button>
           <button onClick=${() => openManual(meal, d)}>${Icon.pencil()}Manuell</button>
         </div>
         <div class="group-label">Zuletzt verwendet</div>
         ${recent.length ? html`<div class="results">${recent.map(Row)}</div>`
-          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheinen deine häufigsten Lebensmittel, sobald du etwas eingetragen hast.</div>`}`}
+          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheinen deine zuletzt verwendeten Lebensmittel, sobald du etwas eingetragen hast.</div>`}`}
 
       ${q && html`
         <div class="group-label">Lebensmittel</div>
         ${local.length ? html`<div class="results">${local.map(Row)}</div>`
           : html`<div class="muted" style="font-size:15px;padding:6px 0">${q.trim().length < 2 ? "Mindestens 2 Buchstaben eingeben" : "Keine Treffer in der Lebensmitteldatenbank"}</div>`}
         <div class="group-label row between"><span>Markenprodukte</span>${products.loading && html`<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>`}</div>
-        ${products.list.length ? html`<div class="results">${products.list.map(Row)}</div>`
+        ${productList.length ? html`<div class="results">${productList.map(Row)}</div>`
           : html`<div class="muted" style="font-size:15px;padding:6px 0">${products.loading ? "Suche bei Open Food Facts …" : products.error ? products.error : q.trim().length < 3 ? "Ab 3 Buchstaben wird auch bei Open Food Facts gesucht" : "Keine Produkte gefunden"}</div>`}
         <button class="btn btn-tint block" style="margin-top:18px" onClick=${() => openManual(meal, d, q)}>„${q}“ manuell eintragen</button>`}
 
@@ -114,8 +126,6 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
 export function openPortion(food, meal, d, opts = {}) {
   openOverlay((o) => html`<${PortionSheet} ...${o} food=${food} meal=${meal} d=${d} ...${opts}/>`);
 }
-
-const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
 
 function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
   const [meal, setMeal] = useState(initialMeal ?? mealForNow());
@@ -137,7 +147,7 @@ function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
   };
 
   return html`
-    <${Sheet} id=${id} closing=${closing} title="Portion"
+    <${Sheet} id=${id} closing=${closing} title="Menge"
       footer=${html`<button class="btn btn-primary block" disabled=${!grams || busy} onClick=${add}>
         ${busy ? html`<span class="spinner"></span>` : html`${Icon.plus()} Hinzufügen · ${n0(food.per100.kcal * f)} kcal`}</button>`}>
       <div class="food-hero">
@@ -145,19 +155,19 @@ function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
         <div class="food-name">${food.name}</div>
         <div class="muted" style="font-size:14px">${n0(food.per100.kcal)} kcal pro 100 g${food.source ? " · " + food.source : ""}</div>
       </div>
-      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      <${Seg} label="Mahlzeit" options=${mealOptions} value=${meal} onChange=${setMeal}/>
       <label class="label" for="grams">Menge</label>
       <div class="stepper">
-        <button class="icon-btn fill" aria-label="Weniger" onClick=${() => { haptic(); setText(gramText(Math.max(0, grams - 10))); }}>−</button>
+        <button class="icon-btn fill" aria-label="10 g weniger" onClick=${() => { haptic(); setText(gramText(Math.max(0, grams - 10))); }}>−</button>
         <div class="unit-input grow">
           <input id="grams" class="field num" inputmode="decimal" value=${text} onInput=${(e) => setText(e.currentTarget.value)}
             onFocus=${(e) => e.currentTarget.select()}/>
           <span>g</span>
         </div>
-        <button class="icon-btn fill" aria-label="Mehr" onClick=${() => { haptic(); setText(gramText(grams + 10)); }}>+</button>
+        <button class="icon-btn fill" aria-label="10 g mehr" onClick=${() => { haptic(); setText(gramText(grams + 10)); }}>+</button>
       </div>
       <div class="chips" style="margin-top:10px">
-        ${chips.map((c) => html`<button class=${cx("chip", grams === c && "on")} onClick=${() => { haptic(); setText(gramText(c)); }}>${gramText(c)} g</button>`)}
+        ${chips.map((c) => html`<button class=${cx("chip", grams === c && "on")} aria-pressed=${grams === c} onClick=${() => { haptic(); setText(gramText(c)); }}>${gramText(c)} g</button>`)}
       </div>
       <div class="nutri">
         <div><b>${n0(food.per100.kcal * f)}</b><span>kcal</span></div>
@@ -198,10 +208,10 @@ function ManualSheet({ id, closing, meal: initialMeal, d, initialName }) {
   return html`
     <${Sheet} id=${id} closing=${closing} title="Manuell eintragen"
       footer=${html`<button class="btn btn-primary block" disabled=${!valid || busy} onClick=${save}>Eintragen</button>`}>
-      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      <${Seg} label="Mahlzeit" options=${mealOptions} value=${meal} onChange=${setMeal}/>
       ${field("name", "Bezeichnung", "z. B. Omas Apfelkuchen", "text")}
       <div class="row" style="gap:10px;align-items:flex-start">
-        <div class="grow">${field("kcal", "Kalorien (kcal)", "0")}</div>
+        <div class="grow">${field("kcal", "Kalorien (kcal)", "z. B. 250")}</div>
         <div class="grow">${field("grams", "Menge (g, optional)", "–")}</div>
       </div>
       <div class="row" style="gap:10px;align-items:flex-start">

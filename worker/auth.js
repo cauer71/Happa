@@ -29,9 +29,16 @@ async function loadKeys(teamDomain) {
   keyCache = { at: Date.now(), keys: map };
 }
 
+// Schlüssel holen; ist Access kurz nicht erreichbar, gelten die alten Schlüssel weiter.
+// Gibt es gar keine, wird ein Fehler geworfen (→ 503 statt "nicht angemeldet").
 async function keyFor(kid, teamDomain) {
   if (!keyCache.keys.has(kid) || Date.now() - keyCache.at > KEY_TTL_MS) {
-    await loadKeys(teamDomain);
+    try {
+      await loadKeys(teamDomain);
+    } catch (err) {
+      if (!keyCache.keys.size) throw err;
+      keyCache.at = Date.now() - KEY_TTL_MS + 5 * 60 * 1000; // in 5 Minuten erneut versuchen
+    }
   }
   return keyCache.keys.get(kid);
 }
@@ -56,12 +63,18 @@ export async function authenticate(request, env) {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
 
+  let header, payload;
   try {
-    const header = b64urlToJson(parts[0]);
-    const payload = b64urlToJson(parts[1]);
-    const key = await keyFor(header.kid, env.ACCESS_TEAM_DOMAIN);
-    if (!key) return null;
+    header = b64urlToJson(parts[0]);
+    payload = b64urlToJson(parts[1]);
+  } catch {
+    return null;
+  }
+  if (header.alg !== "RS256") return null;
+  const key = await keyFor(header.kid, env.ACCESS_TEAM_DOMAIN); // wirft nur bei Infrastrukturproblemen
+  if (!key) return null;
 
+  try {
     const valid = await crypto.subtle.verify(
       "RSASSA-PKCS1-v1_5", key, b64urlToBytes(parts[2]),
       new TextEncoder().encode(parts[0] + "." + parts[1])

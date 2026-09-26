@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "preact/hooks";
 import { html, cx, haptic, today, addDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, initials, shortDate } from "../util.js";
 import { Icon } from "../icons.js";
-import { useStore, selectDay, loadRange, setWater, removeEntry, toast, currentGoals, setTab, emptyDay, state, set } from "../store.js";
+import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state, set } from "../store.js";
 import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled } from "../ui.js";
 import { MEALS, totals, tipFor, E } from "../nutrition.js";
 import { openAdd } from "./add.js";
@@ -47,7 +47,7 @@ export function TodayView() {
           <p class="subtitle">${longDate(d)}</p>
         </div>
         <div class="row" style="gap:8px">
-          <button class="pill btn-glass" style="color:var(--streak)" aria-label=${`${s.streak.current} Tage in Folge`}
+          <button class="pill btn-glass" style="color:var(--streak)" aria-label=${`Serie: ${s.streak.current} ${s.streak.current === 1 ? "Tag" : "Tage"} in Folge`}
             onClick=${() => { haptic(); toast(s.streak.current ? `${s.streak.current} ${s.streak.current === 1 ? "Tag" : "Tage"} in Folge – weiter so!` : "Trag heute etwas ein und starte deine Serie!", "🔥"); }}>
             🔥<span style="color:var(--text)">${s.streak.current}</span>
           </button>
@@ -76,21 +76,13 @@ function WeekStrip({ selected, logged }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
   useEffect(() => {
-    // Woche einmal laden: 7 Zeilen, danach ist jeder Tag sofort da
-    const missing = days.some((d) => d <= t && !state.days[d]);
-    if (missing) {
-      loadRange(monday, Math.min(addDays(monday, 6), t)).then((rows) => {
-        const next = new Set(state.logged);
-        rows.forEach((r) => (r.log.length ? next.add(r.d) : next.delete(r.d)));
-        set({ logged: next });
-      }).catch(() => {});
-    }
+    // Woche einmal laden (nur fehlende Tage): danach ist jeder Tag sofort da
+    loadRange(monday, Math.min(addDays(monday, 6), t)).catch(() => {});
   }, [monday]);
 
   const shift = (weeks) => {
-    const target = addDays(selected, weeks * 7);
     haptic();
-    selectDay(Math.min(target, t));
+    set({ selected: Math.min(addDays(selected, weeks * 7), t) }); // lädt die Wochenleiste selbst
   };
   const start = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
   const end = (e) => {
@@ -106,7 +98,7 @@ function WeekStrip({ selected, logged }) {
 
   return html`
     <div class="row" style="gap:6px">
-      <button class="icon-btn sm fill desk-only" aria-label="Vorige Woche" onClick=${() => shift(-1)}>${Icon.left()}</button>
+      <button class="icon-btn sm fill pointer-only" aria-label="Vorige Woche" onClick=${() => shift(-1)}>${Icon.left()}</button>
       <div class="week card grow" onTouchStart=${start} onTouchEnd=${end}>
         ${days.map((d) => html`
           <button class=${cx("day", d === selected && "sel", d === t && "today", logged.has(d) && "logged", d > t && "future")}
@@ -115,7 +107,7 @@ function WeekStrip({ selected, logged }) {
             <span>${weekdayShort(d)}</span><b>${d % 100}</b><i></i>
           </button>`)}
       </div>
-      <button class="icon-btn sm fill desk-only" aria-label="Nächste Woche" disabled=${addDays(monday, 7) > t}
+      <button class="icon-btn sm fill pointer-only" aria-label="Nächste Woche" disabled=${addDays(monday, 7) > t}
         style=${addDays(monday, 7) > t ? "opacity:.3" : ""} onClick=${() => shift(1)}>${Icon.right()}</button>
     </div>
     ${selected !== t && html`<div class="center" style="margin-top:8px">
@@ -129,10 +121,13 @@ function CalorieCard({ t, g, d }) {
   const over = remaining < 0;
   const ratio = t.kcal / g.kcal;
   const isToday = d === today();
+  const dayDone = !isToday || new Date().getHours() >= 20;
+  const floor = state.profile.sex === "m" ? 1500 : 1200;
   let coach;
   if (!t.count) coach = isToday ? "Noch nichts eingetragen – ein Foto genügt 📸" : "An diesem Tag gibt es keine Einträge.";
   else if (over) coach = "Etwas drüber – kein Problem. Entscheidend ist der Wochenschnitt.";
   else if (ratio > 0.9) coach = "Fast genau im Ziel – stark! 🎯";
+  else if (dayDone && (t.kcal < floor || ratio < 0.6)) coach = "Eher wenig – alles eingetragen? Zu wenig zu essen macht es auf Dauer schwerer.";
   else if (ratio > 0.5) coach = "Du liegst gut im Plan 👍";
   else coach = "Guter Start – weiter so!";
 
@@ -177,17 +172,27 @@ function MealCard({ meal, day, kcal }) {
     </section>`;
 }
 
-// Eintrag mit Wischen-zum-Löschen (wie in iOS-Listen)
+// Eintrag mit Wischen-zum-Löschen (wie in iOS-Listen).
+// Antippen öffnet über onClick; ein Wischen oder Scrollen löst dagegen nichts aus.
 function EntryRow({ entry, d }) {
   const inner = useRef();
   const row = useRef();
   const g = useRef(null);
-  const hideDel = () => setTimeout(() => row.current?.classList.remove("swiping"), 360);
+  const swiped = useRef(false);
   const [open, setOpen] = useState(false);
   const WIDTH = 96;
+  const hideDel = () => setTimeout(() => row.current?.classList.remove("swiping"), 360);
+  const snap = (toOpen) => {
+    if (!inner.current) return;
+    inner.current.style.transition = "";
+    inner.current.style.transform = toOpen ? `translateX(${-WIDTH}px)` : "";
+    setOpen(toOpen);
+    if (!toOpen) hideDel();
+  };
 
   const down = (e) => {
-    g.current = { x: e.clientX, y: e.clientY, dx: 0, moved: false, horiz: null };
+    g.current = { x: e.clientX, y: e.clientY, dx: 0, horiz: null };
+    swiped.current = false;
   };
   const move = (e) => {
     const s = g.current;
@@ -197,8 +202,9 @@ function EntryRow({ entry, d }) {
       s.horiz = Math.abs(dx) > Math.abs(dy);
       if (s.horiz) e.currentTarget.setPointerCapture?.(e.pointerId);
     }
+    if (s.horiz === null) return;
+    swiped.current = true; // jede echte Bewegung (auch senkrecht) ist kein Antippen
     if (!s.horiz) return;
-    s.moved = true;
     row.current.classList.add("swiping");
     s.dx = Math.min(0, Math.max(-WIDTH * 1.6, dx + (open ? -WIDTH : 0)));
     inner.current.style.transition = "none";
@@ -207,33 +213,37 @@ function EntryRow({ entry, d }) {
   const up = () => {
     const s = g.current;
     g.current = null;
-    if (!s) return;
-    inner.current.style.transition = "";
-    if (!s.moved) {
-      if (open) { setOpen(false); inner.current.style.transform = ""; hideDel(); return; }
-      haptic();
-      openEntry(d, entry);
-      return;
-    }
+    if (!s || !s.horiz) return;
     if (s.dx < -WIDTH * 1.4) { del(); return; }
     const willOpen = s.dx < -WIDTH / 2;
-    setOpen(willOpen);
-    inner.current.style.transform = willOpen ? `translateX(${-WIDTH}px)` : "";
-    if (willOpen) haptic(); else hideDel();
+    snap(willOpen);
+    if (willOpen) haptic();
+  };
+  // Browser übernimmt das Scrollen: nur zurücksetzen, nichts öffnen
+  const cancel = () => {
+    const s = g.current;
+    g.current = null;
+    if (s && s.horiz) snap(open);
+  };
+  const click = () => {
+    if (swiped.current) { swiped.current = false; return; }
+    if (open) { snap(false); return; }
+    haptic();
+    openEntry(d, entry);
   };
   const del = async () => {
     haptic("heavy");
-    inner.current.style.transform = "translateX(-100%)";
-    try { await removeEntry(d, entry[E.id]); toast("Gelöscht", "🗑️"); }
-    catch (err) { toast(err.message, "⚠️"); inner.current.style.transform = ""; hideDel(); }
+    if (inner.current) inner.current.style.transform = "translateX(-100%)";
+    try { await deleteWithUndo(d, entry[E.id]); }
+    catch (err) { toast(err.message, "⚠️"); if (inner.current) snap(false); }
   };
 
   return html`
     <div class="entry" ref=${row}>
-      <button class="entry-del" onClick=${del} aria-label="Löschen" tabindex=${open ? 0 : -1}>Löschen</button>
-      <div ref=${inner} class="entry-inner" role="button" tabindex="0"
-        onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}
-        onKeyDown=${(e) => e.key === "Enter" && openEntry(d, entry)}>
+      <button class="entry-del" onClick=${del} aria-label=${`${entry[E.name]} löschen`} tabindex=${open ? 0 : -1}>Löschen</button>
+      <div ref=${inner} class="entry-inner" role="button" tabindex="0" aria-label=${`${entry[E.name]}, ${n0(entry[E.kcal])} kcal – bearbeiten`}
+        onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${cancel} onClick=${click}
+        onKeyDown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openEntry(d, entry); } if (e.key === "Delete" || e.key === "Backspace") del(); }}>
         <${Thumb} id=${entry[E.id]} emoji=${entry[E.emoji]}/>
         <div class="grow">
           <div class="entry-name">${entry[E.name]}${entry[E.src] === "k" && html`<span class="badge-ai">KI</span>`}</div>
@@ -263,7 +273,8 @@ function WaterCard({ day, goal }) {
       </div>
       <div class="cups" style=${`grid-template-columns:repeat(${count <= 8 ? count : Math.ceil(count / 2)},1fr)`}>
         ${Array.from({ length: count }, (_, i) => html`
-          <button class=${cx("cup", i < filled && "full", i === filled && "next")} aria-label=${`${(i + 1) * cup} ml`} onClick=${() => tap(i)}></button>`)}
+          <button class=${cx("cup", i < filled && "full", i === filled && "next")} aria-label=${`Glas ${i + 1} (${(i + 1) * cup} ml)`}
+            aria-pressed=${i < filled} onClick=${() => tap(i)}></button>`)}
       </div>
     </section>`;
 }
@@ -275,15 +286,18 @@ function WeightCard({ d, day }) {
   const start = s.profile.startWeight;
   const shown = day.weight ?? (d === today() ? last?.w : null);
   const delta = shown && start ? shown - start : 0;
+  const gainGoal = (s.profile.goalWeight || 0) > (start || 0);
+  const good = gainGoal ? delta >= 0 : delta <= 0;
   return html`
     <section class="card tap" aria-label="Gewicht" onClick=${() => { haptic(); openWeight(d); }}>
       <div class="row between">
         <div class="card-title" style="margin:0"><span class="icon-dot" style="background:color-mix(in srgb, var(--weight) 16%, transparent);color:var(--weight)">⚖️</span>Gewicht</div>
-        <span class="btn btn-tint small">${day.weight ? "Ändern" : "Eintragen"}</span>
+        <button type="button" class="btn btn-tint small" aria-label=${`Gewicht für ${longDate(d)} ${day.weight ? "ändern" : "eintragen"}`}
+          onClick=${(e) => { e.stopPropagation(); haptic(); openWeight(d); }}>${day.weight ? "Ändern" : "Eintragen"}</button>
       </div>
       <div class="row" style="margin-top:10px;align-items:baseline;gap:10px">
         <div class="kpi">${shown ? n1(shown) : "–"} <small>kg</small></div>
-        ${shown && start && Math.abs(delta) >= 0.05 && html`<div style=${`font-weight:600;font-size:15px;color:${delta <= 0 ? "var(--accent)" : "var(--over-b)"}`}>
+        ${shown && start && Math.abs(delta) >= 0.05 && html`<div style=${`font-weight:600;font-size:15px;color:${good ? "var(--accent-text)" : "var(--over-b)"}`}>
           ${delta <= 0 ? "−" : "+"}${n1(Math.abs(delta))} kg seit Start</div>`}
         ${shown && start && Math.abs(delta) < 0.05 && html`<div class="muted" style="font-weight:600;font-size:15px">Startgewicht</div>`}
       </div>

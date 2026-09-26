@@ -61,22 +61,22 @@ function answerText(result) {
 }
 
 export async function recognizeFood(env, imageDataUrl, hint) {
-  const text = hint ? `${PROMPT}\nHinweis der Person zum Foto: ${String(hint).slice(0, 200)}` : PROMPT;
-  const messages = [{
-    role: "user",
-    content: [
-      { type: "text", text },
-      { type: "image_url", image_url: { url: imageDataUrl } },
-    ],
-  }];
+  const content = [
+    { type: "text", text: PROMPT },
+    { type: "image_url", image_url: { url: imageDataUrl } },
+  ];
+  // Der Hinweis ist ein eigener, klar abgegrenzter Teil – er ergänzt den Inhalt,
+  // ändert aber nicht das Antwortformat.
+  if (hint) {
+    content.push({ type: "text", text: `Zusatzinfo der Person zum Foto (nur zum Inhalt, das JSON-Format bleibt gleich): ${String(hint).slice(0, 200)}` });
+  }
+  const messages = [{ role: "user", content }];
 
   const problems = [];
   for (const model of MODELS) {
+    let result;
     try {
-      const result = await env.AI.run(model.id, {
-        messages, max_tokens: 800, temperature: 0.2, ...model.options,
-      });
-      return { ...parseAnswer(answerText(result)), model: model.id.split("/").pop() };
+      result = await env.AI.run(model.id, { messages, max_tokens: 800, temperature: 0.2, ...model.options });
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
       problems.push(model.id + ": " + message);
@@ -86,6 +86,15 @@ export async function recognizeFood(env, imageDataUrl, hint) {
         e.quota = true;
         throw e;
       }
+      continue; // nur bei Verbindungs-/Kapazitätsproblemen das nächste (teurere) Modell fragen
+    }
+    const name = model.id.split("/").pop();
+    try {
+      return { ...parseAnswer(answerText(result)), model: name };
+    } catch {
+      // Das Modell hat geantwortet, aber kein brauchbares JSON geliefert: nicht das
+      // teure Ersatzmodell bemühen, sondern "nichts erkannt" melden.
+      return { dish: "", items: [], model: name };
     }
   }
   const e = new Error("Die Erkennung ist fehlgeschlagen.");

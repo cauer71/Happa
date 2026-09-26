@@ -17,22 +17,25 @@ const TABS = [
   { id: "profil", label: "Profil", icon: Icon.person },
 ];
 
-function TabBar({ tab }) {
+function TabBar({ tab, inert }) {
   const idx = TABS.findIndex((t) => t.id === tab);
   return html`
-    <nav class="tabbar-wrap">
-      <div class="tabbar glass" role="tablist">
-        <i class="tab-lens" style=${`transform:translateX(${idx * 100}%)`}></i>
+    <nav class="tabbar-wrap" aria-label="Hauptnavigation" inert=${inert}>
+      <div class="tabbar glass">
+        <i class="tab-lens" style=${`transform:translateX(${idx * 100}%)`} aria-hidden="true"></i>
         ${TABS.map((t) => html`
-          <button class=${cx("tab", t.id === tab && "active")} role="tab" aria-selected=${t.id === tab}
+          <button class=${cx("tab", t.id === tab && "active")} aria-current=${t.id === tab ? "page" : undefined}
             onClick=${() => setTab(t.id)}>${t.icon()}<span>${t.label}</span></button>`)}
       </div>
-      <button class="fab" aria-label="Essen fotografieren" onClick=${() => { haptic(); openCamera({}); }}>${Icon.camera()}</button>
+      <button class="fab" aria-label="Essen fotografieren"
+        onClick=${() => { haptic(); openCamera({ d: state.tab === "heute" ? state.selected : state.today }); }}>${Icon.camera()}</button>
     </nav>`;
 }
 
+// Nur das oberste Overlay ist bedienbar; darunterliegende sind "inert".
 function Overlays({ overlays }) {
-  return overlays.map((o) => html`<div key=${o.id}>${o.render({ id: o.id, closing: o.closing })}</div>`);
+  const top = overlays.filter((o) => !o.closing).pop();
+  return overlays.map((o) => html`<div key=${o.id} inert=${o !== top}>${o.render({ id: o.id, closing: o.closing })}</div>`);
 }
 
 function ErrorScreen({ message }) {
@@ -58,8 +61,11 @@ function App() {
   if (s.phase === "error") return html`<${ErrorScreen} message=${s.error}/>`;
 
   const View = s.tab === "fortschritt" ? ProgressView : s.tab === "profil" ? ProfileView : TodayView;
+  const covered = s.overlays.some((o) => !o.closing) || !!s.celebrate;
   return html`
-    ${s.phase === "onboarding" ? html`<${Onboarding}/>` : html`<div key=${s.tab}><${View}/></div><${TabBar} tab=${s.tab}/>`}
+    ${s.phase === "onboarding"
+      ? html`<div inert=${covered}><${Onboarding}/></div>`
+      : html`<div key=${s.tab} inert=${covered}><${View}/></div><${TabBar} tab=${s.tab} inert=${covered}/>`}
     <${Overlays} overlays=${s.overlays}/>
     <${Toast}/>
     <${Celebrate}/>`;
@@ -71,6 +77,7 @@ const initialTab = location.hash.slice(1);
 if (TABS.some((t) => t.id === initialTab)) state.tab = initialTab;
 
 function hideSplash() {
+  clearTimeout(window.__happaWatchdog);
   const splash = document.getElementById("splash");
   if (!splash) return;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -79,6 +86,17 @@ function hideSplash() {
     splash.classList.add("out");
     setTimeout(() => splash.remove(), 600);
   }, wait);
+}
+
+// iOS-Tastatur: Höhe als CSS-Variable, damit Sheets darüber bleiben
+if (window.visualViewport) {
+  const vv = window.visualViewport;
+  const onVV = () => {
+    const kb = Math.max(0, innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty("--kb", (kb > 80 ? kb : 0) + "px");
+  };
+  vv.addEventListener("resize", onVV);
+  vv.addEventListener("scroll", onVV);
 }
 
 render(html`<${App}/>`, document.getElementById("app"));

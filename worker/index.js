@@ -12,7 +12,9 @@ import { recognizeFood } from "./ai.js";
 import { searchProducts, productByBarcode } from "./off.js";
 
 const MAX_PROFILE_BYTES = 16000;
+const MAX_BODY_BYTES = 64_000;
 const MAX_IMAGE_BYTES = 3_000_000;
+const MAX_BATCH = 10;
 
 const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), {
@@ -27,8 +29,15 @@ class HttpError extends Error {
 const clamp = (v, min, max) => Math.min(max, Math.max(min, Number.isFinite(+v) ? +v : 0));
 const r1 = (v) => Math.round(v * 10) / 10;
 
-async function body(request) {
-  try { return await request.json(); } catch { throw new HttpError(400, "Ungültiges JSON"); }
+// JSON-Körper mit Größenbegrenzung lesen; nur Objekte und Arrays sind erlaubt.
+async function body(request, limit = MAX_BODY_BYTES) {
+  const length = Number(request.headers.get("content-length"));
+  if (!length) throw new HttpError(411, "Leere Anfrage");
+  if (length > limit) throw new HttpError(413, "Die Anfrage ist zu groß");
+  let data;
+  try { data = await request.json(); } catch { throw new HttpError(400, "Ungültiges JSON"); }
+  if (data === null || typeof data !== "object") throw new HttpError(400, "Ungültige Daten");
+  return data;
 }
 
 // Datum als Zahl JJJJMMTT; der Browser schickt immer sein lokales Datum.
@@ -38,11 +47,11 @@ function dayParam(value) {
   return d;
 }
 
-function prevDay(d) {
-  const t = Date.UTC(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100) - 86400000;
+const toDay = (t) => {
   const x = new Date(t);
   return x.getUTCFullYear() * 10000 + (x.getUTCMonth() + 1) * 100 + x.getUTCDate();
-}
+};
+const prevDay = (d) => toDay(Date.UTC(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100) - 86400000);
 
 // Eintrag: [id, Mahlzeit 0–3, Name, Gramm, kcal, Eiweiß, Kohlenhydrate, Fett, Quelle, Emoji]
 // Quelle: k = KI-Foto, b = BLS, o = Open Food Facts, m = manuell
@@ -68,23 +77,19 @@ const dayOut = (row, d) => row
   ? { d: row.d, log: JSON.parse(row.log || "[]"), water: row.water || 0, weight: row.weight ?? null, ai: row.ai || 0 }
   : { d, log: [], water: 0, weight: null, ai: 0 };
 
-// E-Mail → Benutzer-ID, pro Worker-Instanz zwischengespeichert (spart Lesezugriffe).
-const uidCache = new Map();
-
-async function userRow(env, email) {
-  let row = await env.DB.prepare("SELECT id, profile FROM users WHERE email = ?").bind(email).first();
+// Benutzer bei jeder Anfrage über den Index auf users.email auflösen (1 Zeile).
+// Bewusst ohne Zwischenspeicher: Nach "Konto löschen" darf keine alte ID weiterleben.
+async function userRow(env, email, withProfile = false) {
+  const cols = withProfile ? "id, profile" : "id";
+  let row = await env.DB.prepare(`SELECT ${cols} FROM users WHERE email = ?`).bind(email).first();
   if (!row) {
     row = await env.DB.prepare(
-      "INSERT INTO users (email) VALUES (?) ON CONFLICT(email) DO UPDATE SET email = excluded.email RETURNING id, profile"
+      `INSERT INTO users (email) VALUES (?) ON CONFLICT(email) DO UPDATE SET email = excluded.email RETURNING ${cols}`
     ).bind(email).first();
   }
-  uidCache.set(email, row.id);
   return row;
 }
-
-async function userId(env, email) {
-  return uidCache.get(email) ?? (await userRow(env, email)).id;
-}
+const userId = async (env, email) => (await userRow(env, email)).id;
 
 function streaks(days, today) {
   // days: Tage mit Einträgen, absteigend sortiert
@@ -104,25 +109,113 @@ function streaks(days, today) {
   return { current, best };
 }
 
+async function lastWeight(env, uid) {
+  const row = await env.DB.prepare(
+    "SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL ORDER BY d DESC LIMIT 1"
+  ).bind(uid).first();
+  return row ? { d: row.d, w: row.weight } : null;
+}
+
 async function handleMe(env, email, url) {
   const today = dayParam(url.searchParams.get("d"));
-  const user = await userRow(env, email);
+  const user = await userRow(env, email, true);
   const [dayRes, loggedRes, weightRes] = await env.DB.batch([
     env.DB.prepare("SELECT d, log, water, weight, ai FROM days WHERE uid = ? AND d = ?").bind(user.id, today),
     env.DB.prepare("SELECT d FROM days WHERE uid = ? AND d <= ? AND log != '[]' ORDER BY d DESC LIMIT 400").bind(user.id, today),
     env.DB.prepare("SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL ORDER BY d DESC LIMIT 1").bind(user.id),
   ]);
   const logged = loggedRes.results.map((r) => r.d);
-  const lastWeight = weightRes.results[0];
+  const lw = weightRes.results[0];
   return json({
     email,
     profile: JSON.parse(user.profile || "{}"),
     day: dayOut(dayRes.results[0], today),
     streak: streaks(logged, today),
     logged: logged.slice(0, 60),
-    lastWeight: lastWeight ? { d: lastWeight.d, w: lastWeight.weight } : null,
+    lastWeight: lw ? { d: lw.d, w: lw.weight } : null,
     aiLimit: Number(env.AI_DAILY_LIMIT) || 40,
   });
+}
+
+// Profil: nur die geänderten Felder werden per json_patch eingespielt, damit ein
+// zweites Gerät mit älterem Stand nicht alles überschreibt (null löscht ein Feld).
+async function handleProfile(request, env, email) {
+  const patch = await body(request);
+  if (Array.isArray(patch)) throw new HttpError(400, "Profil muss ein Objekt sein");
+  const uid = await userId(env, email);
+  const row = await env.DB.prepare(
+    `UPDATE users SET profile = json_patch(profile, ?1)
+     WHERE id = ?2 AND length(json_patch(profile, ?1)) <= ?3
+     RETURNING profile`
+  ).bind(JSON.stringify(patch), uid, MAX_PROFILE_BYTES).first();
+  if (!row) throw new HttpError(413, "Profil ist zu groß");
+  return json({ profile: JSON.parse(row.profile) });
+}
+
+// Mehrere Einträge in einem Schritt: eine Anfrage, ein Schreibzugriff, alles oder nichts.
+// IDs, die schon im Tag stehen, werden übersprungen (sichere Wiederholung nach Netzabbruch).
+async function handleAddEntries(request, env, email, d) {
+  const data = await body(request);
+  const list = Array.isArray(data[0]) ? data : [data];
+  if (!list.length || list.length > MAX_BATCH) throw new HttpError(400, "1 bis 10 Einträge erlaubt");
+  const entries = list.map(cleanEntry);
+  const uid = await userId(env, email);
+
+  const existing = await env.DB.prepare("SELECT log FROM days WHERE uid = ? AND d = ?").bind(uid, d).first();
+  const have = new Set(existing ? JSON.parse(existing.log).map((e) => e[0]) : []);
+  const fresh = entries.filter((e) => !have.has(e[0]));
+  if (!fresh.length) {
+    const row = await env.DB.prepare("SELECT d, log, water, weight, ai FROM days WHERE uid = ? AND d = ?").bind(uid, d).first();
+    return json({ day: dayOut(row, d) });
+  }
+
+  const params = fresh.map((e) => JSON.stringify(e));
+  const refs = params.map((_, i) => `json(?${i + 3})`);
+  const row = await env.DB.prepare(
+    `INSERT INTO days (uid, d, log) VALUES (?1, ?2, json_array(${refs.join(", ")}))
+     ON CONFLICT(uid, d) DO UPDATE SET log = json_insert(days.log, ${refs.map((r) => `'$[#]', ${r}`).join(", ")})
+     RETURNING d, log, water, weight, ai`
+  ).bind(uid, d, ...params).first();
+  return json({ day: dayOut(row, d) }, 201);
+}
+
+// Tageslimit für die KI. Gezählt wird nach dem UTC-Datum des Servers (dann setzt
+// auch Cloudflare das Gratis-Kontingent zurück) – der Browser kann es nicht verschieben.
+// Ist das Limit erreicht, wird nichts mehr geschrieben.
+async function takeAiCredit(env, uid, limit) {
+  const aiDay = toDay(Date.now());
+  const row = await env.DB.prepare(
+    `INSERT INTO days (uid, d, ai) VALUES (?1, ?2, 1)
+     ON CONFLICT(uid, d) DO UPDATE SET ai = days.ai + 1 WHERE days.ai < ?3
+     RETURNING ai`
+  ).bind(uid, aiDay, limit).first();
+  return row ? { aiDay, used: row.ai } : null;
+}
+
+async function handleRecognize(request, env, email) {
+  const data = await body(request, MAX_IMAGE_BYTES);
+  const image = typeof data.image === "string" ? data.image : "";
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(image)) throw new HttpError(400, "Kein Foto übergeben");
+  if (image.length > MAX_IMAGE_BYTES) throw new HttpError(413, "Das Foto ist zu groß");
+  const limit = Number(env.AI_DAILY_LIMIT) || 40;
+
+  const uid = await userId(env, email);
+  const credit = await takeAiCredit(env, uid, limit);
+  if (!credit) {
+    return json({ error: `Du hast heute schon ${limit} Fotos erkennen lassen. Morgen geht es weiter – suchen und eintragen klappt natürlich trotzdem.`, limit: true }, 429);
+  }
+
+  try {
+    const result = await recognizeFood(env, image, data.hint);
+    return json({ ...result, left: Math.max(0, limit - credit.used) });
+  } catch (err) {
+    // Nur zurückbuchen, wenn gar kein Modell geantwortet hat (dann wurde nichts verbraucht)
+    await env.DB.prepare("UPDATE days SET ai = MAX(ai - 1, 0) WHERE uid = ? AND d = ?").bind(uid, credit.aiDay).run();
+    if (err.quota) {
+      return json({ error: "Das kostenlose KI-Kontingent ist für heute aufgebraucht. Ab morgen früh geht es wieder – bis dahin bitte suchen oder den Barcode scannen.", quota: true }, 503);
+    }
+    return json({ error: "Die Erkennung hat nicht geklappt. Bitte noch einmal versuchen." }, 502);
+  }
 }
 
 async function handleApi(request, env, ctx, url, email) {
@@ -138,22 +231,13 @@ async function handleApi(request, env, ctx, url, email) {
       env.DB.prepare("DELETE FROM days WHERE uid = ?").bind(uid),
       env.DB.prepare("DELETE FROM users WHERE id = ?").bind(uid),
     ]);
-    uidCache.delete(email);
     return json({ ok: true });
   }
 
-  if (path === "/api/profile" && method === "PUT") {
-    const profile = await body(request);
-    if (!profile || typeof profile !== "object" || Array.isArray(profile)) throw new HttpError(400, "Profil muss ein Objekt sein");
-    const text = JSON.stringify(profile);
-    if (text.length > MAX_PROFILE_BYTES) throw new HttpError(413, "Profil ist zu groß");
-    const uid = await userId(env, email);
-    await env.DB.prepare("UPDATE users SET profile = ? WHERE id = ?").bind(text, uid).run();
-    return json({ ok: true });
-  }
+  if (path === "/api/profile" && method === "PUT") return handleProfile(request, env, email);
 
   if (path === "/api/export" && method === "GET") {
-    const user = await userRow(env, email);
+    const user = await userRow(env, email, true);
     const { results } = await env.DB.prepare(
       "SELECT d, log, water, weight FROM days WHERE uid = ? ORDER BY d"
     ).bind(user.id).all();
@@ -161,7 +245,8 @@ async function handleApi(request, env, ctx, url, email) {
       app: "Happa", exported: new Date().toISOString(), email,
       profile: JSON.parse(user.profile || "{}"),
       entryFormat: ["id", "meal", "name", "grams", "kcal", "protein", "carbs", "fat", "source", "emoji"],
-      days: results.map((r) => dayOut(r, r.d)).map(({ ai, ...rest }) => rest),
+      days: results.map((r) => dayOut(r, r.d)).filter((x) => x.log.length || x.water || x.weight != null)
+        .map(({ ai, ...rest }) => rest),
     }, 200, { "content-disposition": `attachment; filename="happa-export.json"` });
   }
 
@@ -178,9 +263,10 @@ async function handleApi(request, env, ctx, url, email) {
 
   if (path === "/api/weights" && method === "GET") {
     const uid = await userId(env, email);
+    const from = url.searchParams.get("from") ? dayParam(url.searchParams.get("from")) : 0;
     const { results } = await env.DB.prepare(
-      "SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL ORDER BY d"
-    ).bind(uid).all();
+      "SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL AND d >= ? ORDER BY d"
+    ).bind(uid, from).all();
     return json({ weights: results.map((r) => [r.d, r.weight]) });
   }
 
@@ -198,42 +284,38 @@ async function handleApi(request, env, ctx, url, email) {
          weight = CASE WHEN ?5 THEN ?4 ELSE days.weight END
        RETURNING d, log, water, weight, ai`
     ).bind(uid, d, water, weight, hasWeight ? 1 : 0).first();
-    return json({ day: dayOut(row, d) });
+    // Nach dem Entfernen einer Wiegung gleich die neue letzte mitliefern
+    const extra = hasWeight && weight === null ? { lastWeight: await lastWeight(env, uid) } : {};
+    return json({ day: dayOut(row, d), ...extra });
   }
 
   if ((m = path.match(/^\/api\/days\/(\d{8})\/entries$/)) && method === "POST") {
-    const d = dayParam(m[1]);
-    const entry = JSON.stringify(cleanEntry(await body(request)));
-    const uid = await userId(env, email);
-    const row = await env.DB.prepare(
-      `INSERT INTO days (uid, d, log) VALUES (?1, ?2, json_array(json(?3)))
-       ON CONFLICT(uid, d) DO UPDATE SET log = json_insert(days.log, '$[#]', json(?3))
-       RETURNING d, log, water, weight, ai`
-    ).bind(uid, d, entry).first();
-    return json({ day: dayOut(row, d) }, 201);
+    return handleAddEntries(request, env, email, dayParam(m[1]));
   }
 
   if ((m = path.match(/^\/api\/days\/(\d{8})\/entries\/([a-z0-9]{4,16})$/))) {
     const d = dayParam(m[1]);
     const id = m[2];
-    const uid = await userId(env, email);
 
     if (method === "PUT") {
       const raw = await body(request);
       if (Array.isArray(raw)) raw[0] = id;
       const entry = cleanEntry(raw);
+      const uid = await userId(env, email);
       const row = await env.DB.prepare(
-        `UPDATE days SET log = COALESCE(json_set(log,
+        `UPDATE days SET log = json_set(log,
             (SELECT '$[' || key || ']' FROM json_each(days.log) WHERE json_extract(value, '$[0]') = ?3),
-            json(?4)), log)
+            json(?4))
          WHERE uid = ?1 AND d = ?2
+           AND EXISTS (SELECT 1 FROM json_each(days.log) WHERE json_extract(value, '$[0]') = ?3)
          RETURNING d, log, water, weight, ai`
       ).bind(uid, d, id, JSON.stringify(entry)).first();
-      if (!row) throw new HttpError(404, "Tag nicht gefunden");
+      if (!row) throw new HttpError(404, "Eintrag nicht gefunden");
       return json({ day: dayOut(row, d) });
     }
 
     if (method === "DELETE") {
+      const uid = await userId(env, email);
       const row = await env.DB.prepare(
         `UPDATE days SET log = (SELECT COALESCE(json_group_array(json(value)), '[]')
             FROM json_each(days.log) WHERE json_extract(value, '$[0]') != ?3)
@@ -244,51 +326,35 @@ async function handleApi(request, env, ctx, url, email) {
     }
   }
 
-  if (path === "/api/recognize" && method === "POST") {
-    if (Number(request.headers.get("content-length") || 0) > MAX_IMAGE_BYTES) {
-      throw new HttpError(413, "Das Foto ist zu groß");
-    }
-    const data = await body(request);
-    const image = typeof data.image === "string" ? data.image : "";
-    if (!/^data:image\/(jpeg|png|webp);base64,/.test(image)) throw new HttpError(400, "Kein Foto übergeben");
-    const d = dayParam(data.d);
-    const limit = Number(env.AI_DAILY_LIMIT) || 40;
-
-    // Tageslimit pro Person schützt das kostenlose KI-Kontingent des Kontos.
-    const uid = await userId(env, email);
-    const counter = await env.DB.prepare(
-      `INSERT INTO days (uid, d, ai) VALUES (?1, ?2, 1)
-       ON CONFLICT(uid, d) DO UPDATE SET ai = days.ai + 1
-       RETURNING ai`
-    ).bind(uid, d).first();
-    if (counter.ai > limit) {
-      return json({ error: `Du hast heute schon ${limit} Fotos erkennen lassen. Morgen geht es weiter – suchen und eintragen klappt natürlich trotzdem.`, limit: true }, 429);
-    }
-
-    try {
-      const result = await recognizeFood(env, image, data.hint);
-      return json({ ...result, left: Math.max(0, limit - counter.ai) });
-    } catch (err) {
-      await env.DB.prepare("UPDATE days SET ai = MAX(ai - 1, 0) WHERE uid = ? AND d = ?").bind(uid, d).run();
-      if (err.quota) {
-        return json({ error: "Das kostenlose KI-Kontingent ist für heute aufgebraucht. Ab morgen früh geht es wieder – bis dahin bitte suchen oder den Barcode scannen.", quota: true }, 503);
-      }
-      return json({ error: "Die Erkennung hat nicht geklappt. Bitte noch einmal versuchen.", details: err.details }, 502);
-    }
-  }
+  if (path === "/api/recognize" && method === "POST") return handleRecognize(request, env, email);
 
   if (path === "/api/food/search" && method === "GET") {
     const q = (url.searchParams.get("q") || "").trim();
     if (q.length < 2) return json({ products: [] });
-    return json({ products: await searchProducts(q, ctx) });
+    return json({ products: await searchProducts(q) });
   }
 
   if ((m = path.match(/^\/api\/food\/barcode\/(\d{6,14})$/)) && method === "GET") {
-    const product = await productByBarcode(m[1], ctx);
+    const product = await productByBarcode(m[1]);
     return product ? json({ product }) : json({ error: "Produkt nicht gefunden" }, 404);
   }
 
   throw new HttpError(404, "Unbekannter Endpunkt");
+}
+
+// Schutz gegen fremde Seiten, die im Namen angemeldeter Personen schreiben wollen (CSRF):
+// Schreibende Anfragen müssen von der eigenen Seite kommen und JSON senden.
+function csrfCheck(request, url) {
+  if (request.method === "GET" || request.method === "HEAD") return null;
+  const site = request.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin") return "Anfrage von fremder Seite abgelehnt";
+  const origin = request.headers.get("origin");
+  if (origin && origin !== url.origin) return "Anfrage von fremder Seite abgelehnt";
+  if ((request.method === "POST" || request.method === "PUT")
+    && !(request.headers.get("content-type") || "").startsWith("application/json")) {
+    return "Nur JSON erlaubt";
+  }
+  return null;
 }
 
 export default {
@@ -296,13 +362,22 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
 
-    const user = await authenticate(request, env);
+    const blocked = csrfCheck(request, url);
+    if (blocked) return json({ error: blocked }, 403);
+
+    let user;
+    try {
+      user = await authenticate(request, env);
+    } catch {
+      return json({ error: "Die Anmeldung kann gerade nicht geprüft werden. Bitte gleich noch einmal versuchen." }, 503);
+    }
     if (!user) return json({ error: "Nicht angemeldet", login: true }, 401);
 
     try {
       return await handleApi(request, env, ctx, url, user.email);
     } catch (err) {
       if (err instanceof HttpError) return json({ error: err.message }, err.status);
+      if (err.upstream) return json({ error: err.message }, 502);
       console.error(err);
       return json({ error: "Serverfehler" }, 500);
     }

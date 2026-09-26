@@ -109,9 +109,21 @@ export const storage = {
   },
 };
 
-// Erscheinungsbild: automatisch / hell / dunkel
+export const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Erscheinungsbild: automatisch / hell / dunkel – auch die Farbe der Statusleiste folgt
+const THEME_COLORS = { light: "#eef1f5", dark: "#000000" };
 export function applyTheme(theme) {
   const root = document.documentElement;
-  if (theme === "light" || theme === "dark") root.dataset.theme = theme;
-  else delete root.dataset.theme;
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  if (theme === "light" || theme === "dark") {
+    root.dataset.theme = theme;
+    metas.forEach((m) => { m.dataset.media ??= m.media; m.removeAttribute("media"); m.content = THEME_COLORS[theme]; });
+  } else {
+    delete root.dataset.theme;
+    metas.forEach((m) => {
+      if (m.dataset.media) m.media = m.dataset.media;
+      m.content = m.media.includes("dark") ? THEME_COLORS.dark : THEME_COLORS.light;
+    });
+  }
 }

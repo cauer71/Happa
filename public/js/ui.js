@@ -1,15 +1,42 @@
 // Wiederverwendbare Bausteine: Sheet, Ring, Segmente, Toast, Feier, Vorschaubild …
 import { useEffect, useRef, useState, useLayoutEffect } from "preact/hooks";
-import { html, cx, haptic } from "./util.js";
+import { html, cx, haptic, reduceMotion } from "./util.js";
 import { Icon } from "./icons.js";
-import { state, set, closeOverlay } from "./store.js";
+import { state, set, closeOverlay, dismissToast } from "./store.js";
 import { getThumb } from "./thumbs.js";
 
 // ── Sheet von unten, mit Griff zum Wegziehen ──
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+
+// Fokus in einem Dialog halten, Escape schließt, danach Fokus zurückgeben.
+export function useDialogFocus(ref, id, onEscape) {
+  useEffect(() => {
+    const prev = document.activeElement;
+    const el = ref.current;
+    requestAnimationFrame(() => {
+      if (el && !el.contains(document.activeElement)) (el.querySelector("[autofocus]") || el).focus({ preventScroll: true });
+    });
+    const onKey = (e) => {
+      const top = [...state.overlays].reverse().find((o) => !o.closing);
+      if (!top || top.id !== id || !el) return;
+      if (e.key === "Escape") { e.preventDefault(); onEscape(); return; }
+      if (e.key !== "Tab") return;
+      const items = [...el.querySelectorAll(FOCUSABLE)].filter((x) => x.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); prev?.focus?.({ preventScroll: true }); };
+  }, []);
+}
+
 export function Sheet({ id, closing, title, left, right, footer, full, children, onClose }) {
   const ref = useRef();
   const drag = useRef(null);
   const close = () => { onClose?.(); closeOverlay(id); };
+  useDialogFocus(ref, id, close);
 
   const down = (e) => {
     if (e.target.closest("button, input, textarea, select, a")) return;
@@ -23,6 +50,12 @@ export function Sheet({ id, closing, title, left, right, footer, full, children,
     drag.current.dy = dy;
     const y = dy > 0 ? dy : dy / 6;
     ref.current.style.transform = `translateY(${y}px)`;
+  };
+  const cancel = () => {
+    if (!drag.current) return;
+    drag.current = null;
+    ref.current.style.transition = "transform .35s cubic-bezier(.32,.72,0,1)";
+    ref.current.style.transform = "";
   };
   const up = () => {
     if (!drag.current) return;
@@ -40,8 +73,8 @@ export function Sheet({ id, closing, title, left, right, footer, full, children,
 
   return html`
     <div class=${cx("scrim", closing && "closing")} onClick=${close}></div>
-    <section ref=${ref} class=${cx("sheet", full && "full", closing && "closing")} role="dialog" aria-modal="true" aria-label=${title}>
-      <div onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}>
+    <section ref=${ref} tabindex="-1" class=${cx("sheet", full && "full", closing && "closing")} role="dialog" aria-modal="true" aria-label=${title}>
+      <div class="sheet-drag" onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${cancel}>
         <div class="sheet-grab"></div>
         <div class="sheet-head">
           <div style="width:44px">${left || html`<button class="icon-btn sm fill" onClick=${close} aria-label="Schließen">${Icon.close()}</button>`}</div>
@@ -77,13 +110,23 @@ export function Ring({ size = 200, stroke = 20, value = 0, from = "var(--kcal-a)
 }
 
 // ── Segmentierte Auswahl mit gleitendem Daumen ──
-export function Seg({ options, value, onChange }) {
+// Segmentierte Auswahl = Radiogruppe (Pfeiltasten wechseln wie bei iOS/macOS)
+export function Seg({ options, value, onChange, label }) {
   const idx = Math.max(0, options.findIndex((o) => o.value === value));
+  const pick = (o) => { if (o.value !== value) { haptic(); onChange(o.value); } };
+  const onKey = (e) => {
+    const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    const next = options[(idx + dir + options.length) % options.length];
+    pick(next);
+    requestAnimationFrame(() => e.currentTarget?.querySelector?.('[aria-checked="true"]')?.focus());
+  };
   return html`
-    <div class="seg" role="tablist">
+    <div class="seg" role="radiogroup" aria-label=${label} onKeyDown=${onKey}>
       <i class="seg-thumb" style=${`width:calc((100% - 6px) / ${options.length});transform:translateX(${idx * 100}%)`}></i>
-      ${options.map((o) => html`<button role="tab" aria-selected=${o.value === value}
-        onClick=${() => { if (o.value !== value) { haptic(); onChange(o.value); } }}>${o.label}</button>`)}
+      ${options.map((o) => html`<button type="button" role="radio" aria-checked=${o.value === value}
+        tabindex=${o.value === value ? 0 : -1} onClick=${() => pick(o)}>${o.label}</button>`)}
     </div>`;
 }
 
@@ -111,6 +154,7 @@ export function CountUp({ value, format = (v) => Math.round(v).toLocaleString("d
   useEffect(() => {
     const from = prev.current, to = value, t0 = performance.now();
     if (from === to) return;
+    if (reduceMotion()) { setV(to); prev.current = to; return; }
     let raf;
     const step = (t) => {
       const p = Math.min(1, (t - t0) / ms);
@@ -144,29 +188,37 @@ export function NavBar({ title, show }) {
 export function Toast() {
   const t = state.toast;
   if (!t) return null;
-  return html`<div key=${t.id} class=${cx("toast glass", t.closing && "closing")} role="status">
-    <span class="t-icon">${t.icon}</span><span>${t.text}</span></div>`;
+  return html`<div key=${t.id} class=${cx("toast glass", t.closing && "closing")} role="status" aria-live="polite">
+    <span class="t-icon" aria-hidden="true">${t.icon}</span><span>${t.text}</span>
+    ${t.action && html`<button class="toast-action" onClick=${() => { haptic(); t.action.run(); dismissToast(); }}>${t.action.label}</button>`}
+  </div>`;
 }
 
 // ── Feier bei neuem Abzeichen (mit Konfetti) ──
 export function Celebrate() {
   const badge = state.celebrate;
   const canvas = useRef();
+  const btn = useRef();
   useEffect(() => {
-    if (!badge || !canvas.current) return;
+    if (!badge) return;
     haptic("success");
-    return confetti(canvas.current);
+    const prev = document.activeElement;
+    requestAnimationFrame(() => btn.current?.focus());
+    const onKey = (e) => { if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); if (e.key === "Escape") set({ celebrate: null }); } };
+    document.addEventListener("keydown", onKey);
+    const stop = canvas.current && !reduceMotion() ? confetti(canvas.current) : null;
+    return () => { stop?.(); document.removeEventListener("keydown", onKey); prev?.focus?.(); };
   }, [badge]);
   if (!badge) return null;
   const close = () => set({ celebrate: null });
   return html`
-    <div class="celebrate" onClick=${close}>
-      <div class="medal">${badge.e}</div>
+    <div class="celebrate" onClick=${close} role="dialog" aria-modal="true" aria-labelledby="badge-title">
+      <div class="medal" aria-hidden="true">${badge.e}</div>
       <div class="card glass center">
         <div class="muted" style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Neues Abzeichen</div>
-        <div style="font-size:24px;font-weight:700;margin:4px 0 6px">${badge.name}</div>
+        <div id="badge-title" style="font-size:24px;font-weight:700;margin:4px 0 6px">${badge.name}</div>
         <div class="muted">${badge.desc}</div>
-        <button class="btn btn-primary block" style="margin-top:16px" onClick=${close}>Weiter so!</button>
+        <button ref=${btn} class="btn btn-primary block" style="margin-top:16px" onClick=${close}>Weiter so!</button>
       </div>
     </div>
     <canvas id="confetti" ref=${canvas}></canvas>`;

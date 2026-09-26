@@ -21,10 +21,14 @@ export function Onboarding() {
   const year = new Date().getFullYear();
   const born = parseNum(v.born), height = parseNum(v.height), weight = parseNum(v.weight), goal = parseNum(v.goal);
   const minGoal = height ? Math.ceil(18.5 * (height / 100) ** 2 * 10) / 10 : 0;
+  const bornOk = born >= year - 100 && born <= year - 18;
+  const heightOk = height >= 120 && height <= 230;
+  const weightOk = weight >= 30 && weight <= 400;
+  const goalOk = goal >= Math.max(30, minGoal) && goal <= 400;
   const ok = {
     welcome: v.name.trim().length > 0,
-    about: born >= year - 100 && born <= year - 14 && height >= 120 && height <= 230,
-    weight: weight >= 30 && weight <= 400 && goal >= Math.max(30, minGoal) && goal <= 400,
+    about: bornOk && heightOk,
+    weight: weightOk && goalOk,
     activity: !!v.activity,
     pace: true,
     plan: true,
@@ -71,7 +75,7 @@ export function Onboarding() {
         ${key === "welcome" && html`
           <div class="onb-hero"><img src="/icons/icon.svg" alt=""/></div>
           <h1 class="center">Willkommen bei Happa</h1>
-          <p class="lead center">Einfach eintragen, was du isst – das ist nachweislich der wirksamste Weg zu deinem Wunschgewicht. Ein Foto genügt, Happa erkennt dein Essen.</p>
+          <p class="lead center">Regelmäßiges Eintragen hilft nachweislich beim Abnehmen – und mit Happa genügt dafür ein Foto: Happa erkennt dein Essen.</p>
           <label class="label" for="o-name">Wie heißt du?</label>
           <input id="o-name" class="field" value=${v.name} autocomplete="given-name" onInput=${up("name")} placeholder="Vorname"/>`}
 
@@ -79,11 +83,13 @@ export function Onboarding() {
           <h1>Ein paar Eckdaten</h1>
           <p class="lead">Damit berechnet Happa deinen Energiebedarf.</p>
           <label class="label">Geschlecht</label>
-          <${Seg} options=${SEXES.map((x) => ({ value: x.id, label: x.name }))} value=${v.sex} onChange=${(x) => setV({ ...v, sex: x })}/>
+          <${Seg} label="Geschlecht" options=${SEXES.map((x) => ({ value: x.id, label: x.name }))} value=${v.sex} onChange=${(x) => setV({ ...v, sex: x })}/>
           <div class="row" style="gap:10px;align-items:flex-start">
             <div class="grow"><label class="label" for="o-born">Geburtsjahr</label><input id="o-born" class="field num" inputmode="numeric" placeholder="z. B. 1985" value=${v.born} onInput=${up("born")}/></div>
             <div class="grow"><label class="label" for="o-height">Größe</label><div class="unit-input"><input id="o-height" class="field num" inputmode="numeric" placeholder="170" value=${v.height} onInput=${up("height")}/><span>cm</span></div></div>
-          </div>`}
+          </div>
+          ${v.born && !bornOk && html`<div class="field-hint">${born > year - 18 && born <= year ? "Happa ist für Erwachsene gedacht – für Jugendliche gelten andere Richtwerte." : "Bitte ein vierstelliges Geburtsjahr eingeben."}</div>`}
+          ${v.height && !heightOk && html`<div class="field-hint">Bitte die Größe in cm angeben (120–230).</div>`}`}
 
         ${key === "weight" && html`
           <h1>Dein Gewicht</h1>
@@ -93,24 +99,27 @@ export function Onboarding() {
           <label class="label" for="o-goal">Zielgewicht</label>
           <div class="unit-input"><input id="o-goal" class="field num" inputmode="decimal" placeholder="z. B. 72" value=${v.goal} onInput=${up("goal")}/><span>kg</span></div>
           ${weight > 0 && height > 0 && html`<div class="info-box">📊 Dein BMI: <b>${n1(bmi(weight, height))}</b>${goal > 0 ? html` · am Ziel: <b>${n1(bmi(goal, height))}</b>` : ""}. Gesund ist ein BMI zwischen 18,5 und 25.</div>`}
-          ${goal > 0 && goal < minGoal && html`<div class="info-box warn">⚠️ Unter ${n1(minGoal)} kg läge dein BMI unter 18,5 (Untergewicht). Bitte wähle ein höheres Ziel.</div>`}`}
+          ${v.weight && !weightOk && html`<div class="field-hint">Bitte ein Gewicht zwischen 30 und 400 kg eingeben.</div>`}
+          ${goal > 0 && goal < minGoal && html`<div class="info-box warn">⚠️ Unter ${n1(minGoal)} kg läge dein BMI unter 18,5 (Untergewicht). Bitte wähle ein höheres Ziel.</div>`}
+          ${goal > 400 && html`<div class="field-hint">Bitte ein Zielgewicht bis 400 kg eingeben.</div>`}
+          ${!height && html`<div class="field-hint">Für die BMI-Prüfung bitte zuerst die Größe angeben.</div>`}`}
 
         ${key === "activity" && html`
           <h1>Wie aktiv bist du?</h1>
-          <p class="lead">Im Alltag, ohne gezieltes Abnehm-Training.</p>
+          <p class="lead">Wie viel bewegst du dich in einer normalen Woche – Alltag und Sport zusammen?</p>
           <div class="choices">
-            ${ACTIVITY.map((a) => html`<button class=${cx("choice", v.activity === a.id && "on")} onClick=${() => { haptic(); setV({ ...v, activity: a.id }); }}>
+            ${ACTIVITY.map((a) => html`<button class=${cx("choice", v.activity === a.id && "on")} aria-pressed=${v.activity === a.id} onClick=${() => { haptic(); setV({ ...v, activity: a.id }); }}>
               <span class="e">${a.e}</span><div class="grow"><b>${a.name}</b><small>${a.desc}</small></div></button>`)}
           </div>`}
 
         ${key === "pace" && html`
           <h1>Dein Tempo</h1>
-          <p class="lead">Langsam ist hier schneller: Wer moderat abnimmt, hält sein Gewicht auch danach.</p>
+          <p class="lead">Ein moderates Tempo ist leichter durchzuhalten – und das Gewicht bleibt danach eher unten.</p>
           <div class="choices">
-            ${PACES.map((x) => html`<button class=${cx("choice", v.pace === x.v && "on")} onClick=${() => { haptic(); setV({ ...v, pace: x.v }); }}>
+            ${PACES.map((x) => html`<button class=${cx("choice", v.pace === x.v && "on")} aria-pressed=${v.pace === x.v} onClick=${() => { haptic(); setV({ ...v, pace: x.v }); }}>
               <span class="e">${x.v === 0.5 ? "🐇" : "🐢"}</span><div class="grow"><b>${x.name}</b><small>${x.desc}</small></div></button>`)}
           </div>
-          <div class="info-box">💡 Mehr als 0,5 kg pro Woche empfehlen Fachleute nicht – Apps, die mehr versprechen, setzen oft auf Marketing statt auf Wirkung.</div>`}
+          <div class="info-box">💡 Happa plant höchstens 0,5 kg pro Woche – ein Tempo, das sich gut durchhalten lässt.</div>`}
 
         ${key === "plan" && p && html`
           <h1 class="center">Dein Plan, ${profile.name}</h1>
@@ -126,7 +135,8 @@ export function Onboarding() {
             <div><b style="color:var(--fat)">${p.fat}</b><span>Fett g</span></div>
             <div><b style="color:var(--water)">${n1(p.water / 1000)}</b><span>Wasser l</span></div>
           </div>
-          ${p.mode === "lose" ? html`<div class="info-box">📅 Mit ${n1(p.pace)} kg pro Woche erreichst du <b>${n1(profile.goalWeight)} kg</b> voraussichtlich im <b>${new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(p.eta)}</b>.</div>`
+          ${p.mode === "lose" && p.eta ? html`<div class="info-box">📅 Mit ${n1(p.pace)} kg pro Woche erreichst du <b>${n1(profile.goalWeight)} kg</b> voraussichtlich im <b>${new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(p.eta)}</b>.</div>`
+            : p.mode === "lose" ? html`<div class="info-box warn">An der Sicherheitsgrenze reicht das Kaloriendefizit kaum – mehr Bewegung hilft hier am meisten. Happa begleitet dich trotzdem.</div>`
             : p.mode === "gain" ? html`<div class="info-box">📈 Plan für eine langsame Zunahme bis <b>${n1(profile.goalWeight)} kg</b>.</div>`
             : html`<div class="info-box">⚖️ Plan zum Halten deines Gewichts.</div>`}
           ${p.floored && html`<div class="info-box warn">Aus Sicherheitsgründen plant Happa nicht unter ${profile.sex === "m" ? "1.500" : "1.200"} kcal pro Tag – dein Tempo ist deshalb etwas langsamer.</div>`}

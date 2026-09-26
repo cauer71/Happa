@@ -1,6 +1,8 @@
-// Service Worker: App-Hülle und Lebensmitteldaten offline verfügbar machen.
-// Strategie: Dateien der App "stale-while-revalidate", /api/ immer übers Netz.
-const CACHE = "happa-v1";
+// Service Worker: App offline starten und Lebensmittelsuche offline ermöglichen.
+// - App-Dateien (Seite, JS, CSS): zuerst übers Netz (neue Version sofort), offline aus dem Cache
+// - Lebensmitteldaten und Symbole: aus dem Cache, im Hintergrund aktualisieren
+// - /api/ und /cdn-cgi/ nie cachen (Anmeldung!)
+const CACHE = "happa-v2";
 const SHELL = [
   "/", "/css/app.css", "/js/app.js", "/js/util.js", "/js/icons.js", "/js/api.js", "/js/store.js", "/js/ui.js",
   "/js/nutrition.js", "/js/foods.js", "/js/thumbs.js",
@@ -10,7 +12,12 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((c) => Promise.all(SHELL.map((u) => fetch(u, { redirect: "manual" }).then((r) => (cacheable(r) ? c.put(u, r) : null)))))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -23,6 +30,33 @@ self.addEventListener("activate", (event) => {
 // Nur echte Antworten der App cachen – keine Umleitung zur Access-Anmeldeseite
 const cacheable = (res) => res && res.ok && res.type === "basic" && !res.redirected;
 
+async function networkFirst(req, key = req) {
+  const cache = await caches.open(CACHE);
+  try {
+    const res = await fetch(req);
+    if (cacheable(res)) cache.put(key, res.clone());
+    return res;
+  } catch (err) {
+    const hit = await cache.match(key);
+    if (hit) return hit;
+    throw err;
+  }
+}
+
+async function staleWhileRevalidate(event, req) {
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(req);
+  const net = fetch(req).then((res) => {
+    if (cacheable(res)) cache.put(req, res.clone());
+    return res;
+  });
+  if (hit) {
+    event.waitUntil(net.catch(() => {}));
+    return hit;
+  }
+  return net;
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
@@ -30,19 +64,13 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/cdn-cgi/")) return;
 
   if (req.mode === "navigate") {
-    // Seite immer frisch laden (Anmeldung!), offline die gespeicherte Hülle zeigen
-    event.respondWith(fetch(req).catch(() => caches.match("/")));
+    // Seite immer frisch laden (Anmeldung!), offline die zuletzt geladene Hülle zeigen
+    event.respondWith(networkFirst(req, "/"));
     return;
   }
-
-  event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const hit = await cache.match(req);
-      const net = fetch(req).then((res) => {
-        if (cacheable(res)) cache.put(req, res.clone());
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
-  );
+  if (url.pathname.startsWith("/data/") || url.pathname.startsWith("/icons/")) {
+    event.respondWith(staleWhileRevalidate(event, req));
+    return;
+  }
+  event.respondWith(networkFirst(req));
 });

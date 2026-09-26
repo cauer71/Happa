@@ -25,7 +25,7 @@ export const ACTIVITY = [
 
 export const PACES = [
   { v: 0.25, name: "Gemütlich", desc: "0,25 kg pro Woche – kaum spürbarer Verzicht" },
-  { v: 0.5, name: "Empfohlen", desc: "0,5 kg pro Woche – nachhaltig, laut Fachleuten das gesunde Maximum" },
+  { v: 0.5, name: "Empfohlen", desc: "0,5 kg pro Woche – nachhaltig und gut durchzuhalten" },
 ];
 
 export const SEXES = [
@@ -57,9 +57,11 @@ export function plan(p, weight = p.startWeight) {
   let kcal = mode === "lose" ? tdee - delta : mode === "gain" ? tdee + delta : tdee;
   const floored = mode === "lose" && kcal < floor;
   kcal = Math.round(Math.max(floor, kcal) / 10) * 10;
-  const realPace = mode === "keep" ? 0 : Math.abs(tdee - kcal) * 7 / 7700;
-  const weeks = mode === "keep" || !realPace ? 0 : Math.abs(diff) / realPace;
-  const eta = new Date(Date.now() + weeks * 7 * 86400000);
+  // Tatsächliches Tempo: Liegt die Sicherheitsgrenze über dem Verbrauch, gibt es keins.
+  const realPace = mode === "lose" ? Math.max(0, tdee - kcal) * 7 / 7700
+    : mode === "gain" ? Math.max(0, kcal - tdee) * 7 / 7700 : 0;
+  const weeks = realPace >= 0.05 ? Math.abs(diff) / realPace : null;
+  const eta = weeks ? new Date(Date.now() + weeks * 7 * 86400000) : null;
   const split = p.split || { carbs: 50, protein: 20, fat: 30 };
   return {
     bmr: Math.round(base), tdee: Math.round(tdee), kcal, mode, pace: realPace, weeks, eta, floored,
@@ -160,11 +162,11 @@ export function earnedBadges(ctx) {
 
 // ── Tipps (sachlich, ohne Werbeversprechen) ──
 export const TIPS = [
-  ["📝", "Eintragen wirkt", "Wer regelmäßig protokolliert, nimmt nachweislich mehr ab – auch ohne perfekte Genauigkeit."],
+  ["📝", "Eintragen wirkt", "Regelmäßiges Eintragen hilft nachweislich beim Abnehmen – auch wenn nicht jede Zahl perfekt ist."],
   ["🥚", "Eiweiß macht satt", "Quark, Eier, Fisch oder Hülsenfrüchte zu jeder Mahlzeit helfen gegen Heißhunger."],
   ["💧", "Erst ein Glas Wasser", "Ein Glas Wasser vor dem Essen füllt den Magen – die Portion fällt oft kleiner aus."],
   ["🥦", "Gemüse zuerst", "Mit Salat oder Gemüse beginnen senkt die Kaloriendichte der ganzen Mahlzeit."],
-  ["🐢", "Langsam ist schneller", "0,5 kg pro Woche sind ein gesundes Tempo. Crash-Diäten enden oft im Jo-Jo-Effekt."],
+  ["🐢", "Langsam ist schneller", "Ein moderates Tempo ist leichter durchzuhalten. Crash-Diäten enden oft im Jo-Jo-Effekt."],
   ["😴", "Schlaf zählt mit", "Zu wenig Schlaf steigert den Appetit auf Süßes und Fettiges."],
   ["🧃", "Getränke nicht vergessen", "Saft, Limo, Latte macchiato und Alkohol haben oft mehr Kalorien als gedacht."],
   ["🍽️", "Kleinere Teller", "Auf kleinen Tellern wirken Portionen größer – ein einfacher Trick gegen Nachschlag."],

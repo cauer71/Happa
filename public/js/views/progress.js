@@ -2,30 +2,30 @@
 import { useState, useEffect } from "preact/hooks";
 import { html, cx, haptic, today, addDays, n0, n1, shortDate, weekdayShort, fromInt, monthYear, diffDays } from "../util.js";
 import { Icon } from "../icons.js";
-import { useStore, loadRange, currentGoals, currentWeight, celebrate, toast, state } from "../store.js";
+import { useStore, loadRange, loadWeights, currentGoals, currentWeight, celebrate, toast, state } from "../store.js";
 import { Seg, NavBar, useScrolled, Empty } from "../ui.js";
 import { totals, BADGES, plan } from "../nutrition.js";
-import { api } from "../api.js";
 import { openWeight } from "./weight.js";
 
 export function ProgressView() {
   const s = useStore();
   const scrolled = useScrolled();
-  const [weights, setWeights] = useState(null);
   const [range, setRange] = useState("3m");
+  const [weightError, setWeightError] = useState(false);
   const t = today();
-  const lastWeightKey = s.lastWeight ? s.lastWeight.d + ":" + s.lastWeight.w : "";
 
+  // Nur fehlende Tage und die Gewichte einmal pro Sitzung laden (spart Lesezugriffe)
   useEffect(() => { loadRange(addDays(t, -34), t).catch(() => {}); }, []);
-  useEffect(() => {
-    api("/weights").then((r) => setWeights(r.weights)).catch(() => setWeights([]));
-  }, [lastWeightKey]);
+  useEffect(() => { loadWeights().catch(() => setWeightError(true)); }, []);
+  const weights = s.weights || (weightError ? [] : null);
 
   const g = currentGoals();
   const week = Array.from({ length: 7 }, (_, i) => addDays(t, i - 6)).map((d) => ({ d, t: totals(s.days[d]?.log) }));
-  const logged = week.filter((x) => x.t.count > 0);
+  // Der heutige Tag zählt für Schnitt und Prognose erst ab 20 Uhr (sonst wirkt er zu niedrig)
+  const complete = week.filter((x) => x.d < t || new Date().getHours() >= 20);
+  const logged = complete.filter((x) => x.t.count > 0);
   const avg = logged.length ? logged.reduce((a, x) => a + x.t.kcal, 0) / logged.length : 0;
-  const onTarget = logged.filter((x) => Math.abs(x.t.kcal - g.kcal) <= g.kcal * 0.1 || x.t.kcal <= g.kcal).length;
+  const onTarget = logged.filter((x) => Math.abs(x.t.kcal - g.kcal) <= g.kcal * 0.1).length;
   const macro = logged.reduce((a, x) => ({ c: a.c + x.t.carbs * 4, p: a.p + x.t.protein * 4, f: a.f + x.t.fat * 9 }), { c: 0, p: 0, f: 0 });
   const macroSum = macro.c + macro.p + macro.f;
 
@@ -44,7 +44,7 @@ export function ProgressView() {
             <div class="card-title"><span class="icon-dot" style="background:color-mix(in srgb, var(--accent) 15%, transparent)">🔥</span>Kalorien · 7 Tage</div>
             <div class="row" style="gap:22px;margin-bottom:10px">
               <div><div class="kpi">${logged.length ? n0(avg) : "–"}</div><div class="muted" style="font-size:13px">Ø kcal pro Tag</div></div>
-              <div><div class="kpi">${onTarget}<small>/${logged.length}</small></div><div class="muted" style="font-size:13px">Tage im Ziel</div></div>
+              <div><div class="kpi">${onTarget}<small>/${logged.length}</small></div><div class="muted" style="font-size:13px">Tage im Ziel (±10 %)</div></div>
             </div>
             <${WeekBars} week=${week} goal=${g.kcal}/>
           </section>
@@ -88,7 +88,7 @@ function WeightCard({ weights, range, setRange }) {
       </div>
       <div class="row" style="gap:22px;margin:12px 0 4px;align-items:flex-end">
         <div><div class="kpi">${n1(current)}<small> kg</small></div><div class="muted" style="font-size:13px">aktuell</div></div>
-        <div><div class="kpi" style=${`color:${Math.abs(lost) < 0.05 ? "var(--text)" : lost > 0 ? "var(--accent)" : "var(--over-b)"}`}>${Math.abs(lost) < 0.05 ? "±" : lost > 0 ? "−" : "+"}${n1(Math.abs(lost))}<small> kg</small></div><div class="muted" style="font-size:13px">seit Start</div></div>
+        <div><div class="kpi" style=${`color:${Math.abs(lost) < 0.05 ? "var(--text)" : (goal && goal > start ? lost < 0 : lost > 0) ? "var(--accent-text)" : "var(--over-b)"}`}>${Math.abs(lost) < 0.05 ? "±" : lost > 0 ? "−" : "+"}${n1(Math.abs(lost))}<small> kg</small></div><div class="muted" style="font-size:13px">seit Start</div></div>
         ${goal ? html`<div><div class="kpi">${toGo > 0 ? n1(toGo) : "0"}<small> kg</small></div><div class="muted" style="font-size:13px">bis zum Ziel</div></div>` : null}
       </div>
       ${goal && start > goal ? html`
@@ -97,7 +97,7 @@ function WeightCard({ weights, range, setRange }) {
           <div class="row between muted" style="font-size:12px;margin-top:5px"><span>Start ${n1(start)} kg</span><span>${n0(progress * 100)} % geschafft</span><span>Ziel ${n1(goal)} kg</span></div>
         </div>` : null}
       <div style="margin-top:14px">
-        <${Seg} options=${[{ value: "1m", label: "1 M" }, { value: "3m", label: "3 M" }, { value: "1y", label: "1 J" }, { value: "all", label: "Alle" }]} value=${range} onChange=${setRange}/>
+        <${Seg} label="Zeitraum" options=${[{ value: "1m", label: "1 M" }, { value: "3m", label: "3 M" }, { value: "1y", label: "1 J" }, { value: "all", label: "Alle" }]} value=${range} onChange=${setRange}/>
       </div>
       <div style="margin-top:12px">
         ${weights === null ? html`<div class="muted center" style="padding:40px 0"><span class="spinner"></span></div>`
@@ -173,14 +173,17 @@ function ForecastCard({ logged, avg }) {
   const { tdee } = plan(state.profile, w);
   const perWeek = ((avg - tdee) * 7) / 7700;
   const in5 = w + perWeek * 5;
-  const good = perWeek <= 0 || (state.profile.goalWeight && state.profile.goalWeight > state.profile.startWeight);
+  const gainGoal = (state.profile.goalWeight || 0) > (state.profile.startWeight || 0);
+  const tooFast = !gainGoal && perWeek < -0.6;
+  const good = gainGoal ? perWeek >= 0 : perWeek <= 0 && !tooFast;
   return html`
     <section class="card tip" aria-label="Prognose">
       <div class="tip-icon">🔮</div>
       <div>
         <div style="font-weight:600">Wenn jede Woche so wäre wie diese …</div>
         <p>… wiegst du in 5 Wochen etwa <b style=${`color:${good ? "var(--accent)" : "var(--over-b)"}`}>${n1(in5)} kg</b>
-          (${perWeek <= 0 ? "−" : "+"}${n1(Math.abs(perWeek))} kg pro Woche). Grundlage: Ø ${n0(avg)} kcal bei einem Verbrauch von etwa ${n0(tdee)} kcal.</p>
+          (${perWeek <= 0 ? "−" : "+"}${n1(Math.abs(perWeek))} kg pro Woche). Grundlage: Ø ${n0(avg)} kcal bei einem Verbrauch von etwa ${n0(tdee)} kcal.
+          ${tooFast ? " Das ist schneller als die empfohlenen 0,5 kg pro Woche – iss ruhig etwas mehr, dann hältst du leichter durch." : ""}</p>
       </div>
     </section>`;
 }
@@ -200,7 +203,7 @@ function StreakCard() {
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px" aria-label="Eingetragene Tage der letzten 5 Wochen">
         ${days.map((d) => html`<div title=${shortDate(d)} style=${`aspect-ratio:1;border-radius:8px;background:${s.logged.has(d) ? "var(--accent-grad)" : "var(--fill)"};${d === t ? "box-shadow:0 0 0 2px var(--accent) inset" : ""}`}></div>`)}
       </div>
-      <p class="muted" style="font-size:13px;margin:10px 0 0">Jeder Tag mit mindestens einem Eintrag zählt. Wer dranbleibt, erreicht sein Ziel.</p>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Jeder Tag mit mindestens einem Eintrag zählt. Dranbleiben zahlt sich aus.</p>
     </section>`;
 }
 
