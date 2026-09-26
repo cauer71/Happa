@@ -1,19 +1,18 @@
 {
-  "name": "happa-ocr-test",
-  "version": "0.1.0",
+  "name": "happa",
+  "version": "1.0.0",
   "private": true,
-  "description": "Testseite: Text abfotografieren, per OCR erkennen und in einer Datenbank speichern",
+  "description": "Happa – Kalorien- und Abnehm-App mit Speisenerkennung per Foto (Cloudflare Workers + D1 + Workers AI)",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "dev:cf": "wrangler dev",
-    "db:init": "wrangler d1 execute happa-ocr --remote --file=schema.sql"
-  },
-  "engines": {
-    "node": ">=22.5.0"
+    "db:init": "wrangler d1 execute happa --remote --file=schema.sql",
+    "db:init:local": "wrangler d1 execute happa --local --file=schema.sql",
+    "foods": "python3 scripts/build-foods.py",
+    "icons": "node scripts/build-icons.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.133.0"
+    "wrangler": "^4.40.0"
   }
 }

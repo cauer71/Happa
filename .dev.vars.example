@@ -1,0 +1,3 @@
+# Kopieren nach .dev.vars (wird nicht eingecheckt) – nur für "npm run dev" auf dem eigenen Rechner.
+# Ohne Cloudflare Access davor meldet der Worker lokal diesen Benutzer an.
+DEV_USER=test@example.com

@@ -1,19 +1,31 @@
-name = "happa-ocr"
+name = "happa"
 main = "worker/index.js"
-compatibility_date = "2025-09-01"
+compatibility_date = "2026-09-01"
+workers_dev = false
 
-# Die Dateien aus public/ werden als statische Assets ausgeliefert,
-# alles unter /api/ beantwortet der Worker selbst.
+# App unter eigener Domain; Cloudflare Access (Einmal-PIN per E-Mail) steht davor.
+routes = [{ pattern = "happa.auer.page", custom_domain = true }]
+
+# public/ wird als statische Dateien ausgeliefert, /api/* beantwortet der Worker.
 [assets]
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
-# Workers AI: die Texterkennung laeuft serverseitig ueber ein Vision-Modell.
+# Workers AI (kostenloses Tageskontingent) für die Speisenerkennung per Foto
 [ai]
 binding = "AI"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "happa-ocr"
-database_id = "98ace768-9186-4a3a-86e8-e6c2fd5f1784"
+database_name = "happa"
+database_id = "3d6fd074-b8f4-401c-ba59-02a2ee3f6d2f"
+
+[vars]
+ACCESS_TEAM_DOMAIN = "snowy-surf-69d3.cloudflareaccess.com"
+ACCESS_AUD = "ab9b6aa869a46f3086be78451d007968cba41b62d099b496086dde7a60ed3851"
+AI_DAILY_LIMIT = "40"
+
+[observability]
+enabled = true

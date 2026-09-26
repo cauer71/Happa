@@ -1,0 +1,213 @@
+// Hinzufügen: Suche (BLS lokal + Open Food Facts), zuletzt verwendet, Portion, manuell.
+import { useState, useEffect, useRef, useMemo } from "preact/hooks";
+import { html, cx, haptic, today, uid, n0, n1, parseNum, debounce } from "../util.js";
+import { Icon } from "../icons.js";
+import { useStore, openOverlay, closeOverlay, closeAll, addEntries, toast, pushRecent, recentFoods, currentGoals, checkBadges, state } from "../store.js";
+import { Sheet, Seg } from "../ui.js";
+import { MEALS, mealForNow, makeEntry, totals, foodEmoji } from "../nutrition.js";
+import { searchFoods, productAsFood } from "../foods.js";
+import { api } from "../api.js";
+import { openCamera } from "./camera.js";
+
+export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
+
+export function remainingText(d) {
+  const day = state.days[d];
+  const left = currentGoals().kcal - totals(day?.log).kcal;
+  return left >= 0 ? `noch ${n0(left)} kcal` : `${n0(-left)} kcal drüber`;
+}
+
+// Eintragen + Rückmeldung (von Suche, Portion, Kamera genutzt)
+export async function commitEntries(d, entries, { thumb, foods = [] } = {}) {
+  await addEntries(d, entries, thumb);
+  foods.forEach(([food, grams]) => pushRecent(food, grams));
+  haptic("success");
+  toast(`Eingetragen · ${remainingText(d)}`, "✅");
+  checkBadges(d, { usedAi: entries.some((e) => e[8] === "k") });
+}
+
+export function openAdd(meal = mealForNow(), d = today()) {
+  openOverlay((o) => html`<${AddSheet} ...${o} meal=${meal} d=${d}/>`);
+}
+
+function AddSheet({ id, closing, meal: initialMeal, d }) {
+  useStore();
+  const [meal, setMeal] = useState(initialMeal);
+  const [q, setQ] = useState("");
+  const [local, setLocal] = useState([]);
+  const [products, setProducts] = useState({ q: "", list: [], loading: false, error: null });
+  const recent = useMemo(() => recentFoods(), []);
+
+  useEffect(() => {
+    let alive = true;
+    if (q.trim().length < 2) { setLocal([]); return; }
+    searchFoods(q, 30).then((r) => alive && setLocal(r)).catch(() => alive && setLocal([]));
+    return () => { alive = false; };
+  }, [q]);
+
+  const fetchProducts = useMemo(() => debounce(async (term) => {
+    if (term.trim().length < 3) { setProducts({ q: term, list: [], loading: false }); return; }
+    setProducts((p) => ({ ...p, loading: true }));
+    try {
+      const { products: list } = await api(`/food/search?q=${encodeURIComponent(term)}`);
+      setProducts({ q: term, list: list.map(productAsFood), loading: false });
+    } catch (err) {
+      setProducts({ q: term, list: [], loading: false, error: err.message });
+    }
+  }, 450), []);
+  useEffect(() => { fetchProducts(q); }, [q]);
+
+  const quickAdd = async (food) => {
+    const entry = makeEntry({ id: uid(), meal, name: food.name, grams: food.grams, per100: food.per100, src: food.src, emoji: food.emoji });
+    try { await commitEntries(d, [entry], { foods: [[food, food.grams]] }); }
+    catch (err) { toast(err.message, "⚠️"); }
+  };
+  const pick = (food) => { haptic(); openPortion(food, meal, d); };
+
+  const Row = (food, i) => html`
+    <div class="result" key=${food.name + i} role="button" tabindex="0" onClick=${() => pick(food)}>
+      <div class="entry-thumb">${food.image ? html`<img src=${food.image} alt="" loading="lazy" referrerpolicy="no-referrer"
+        onError=${(e) => { e.currentTarget.replaceWith(document.createTextNode(food.emoji)); }}/>` : food.emoji}</div>
+      <div class="grow">
+        <div class="entry-name">${food.name}</div>
+        <div class="entry-sub">${n0(food.per100.kcal)} kcal / 100 g · ${food.grams} g Portion${food.source ? " · " + food.source : ""}</div>
+      </div>
+      <button class="result-add" aria-label=${`${food.name} direkt hinzufügen`}
+        onClick=${(e) => { e.stopPropagation(); haptic(); quickAdd(food); }}>${Icon.plus()}</button>
+    </div>`;
+
+  return html`
+    <${Sheet} id=${id} closing=${closing} title="Hinzufügen" full>
+      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      <div class="search" style="margin-top:12px">
+        ${Icon.search()}
+        <input type="search" placeholder="Lebensmittel oder Produkt suchen" value=${q}
+          enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false"
+          onInput=${(e) => setQ(e.currentTarget.value)} aria-label="Suchen"/>
+        ${q && html`<button class="icon-btn sm" style="width:24px;height:24px" onClick=${() => setQ("")} aria-label="Leeren">${Icon.close()}</button>`}
+      </div>
+
+      ${!q && html`
+        <div class="quick">
+          <button onClick=${() => { closeOverlay(id); openCamera({ meal, d }); }}>${Icon.camera()}Foto erkennen</button>
+          <button onClick=${() => { closeOverlay(id); openCamera({ meal, d, mode: "barcode" }); }}>${Icon.barcode()}Barcode</button>
+          <button onClick=${() => openManual(meal, d)}>${Icon.pencil()}Manuell</button>
+        </div>
+        <div class="group-label">Zuletzt verwendet</div>
+        ${recent.length ? html`<div class="results">${recent.map(Row)}</div>`
+          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheinen deine häufigsten Lebensmittel, sobald du etwas eingetragen hast.</div>`}`}
+
+      ${q && html`
+        <div class="group-label">Lebensmittel</div>
+        ${local.length ? html`<div class="results">${local.map(Row)}</div>`
+          : html`<div class="muted" style="font-size:15px;padding:6px 0">${q.trim().length < 2 ? "Mindestens 2 Buchstaben eingeben" : "Keine Treffer in der Lebensmitteldatenbank"}</div>`}
+        <div class="group-label row between"><span>Markenprodukte</span>${products.loading && html`<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>`}</div>
+        ${products.list.length ? html`<div class="results">${products.list.map(Row)}</div>`
+          : html`<div class="muted" style="font-size:15px;padding:6px 0">${products.loading ? "Suche bei Open Food Facts …" : products.error ? products.error : q.trim().length < 3 ? "Ab 3 Buchstaben wird auch bei Open Food Facts gesucht" : "Keine Produkte gefunden"}</div>`}
+        <button class="btn btn-tint block" style="margin-top:18px" onClick=${() => openManual(meal, d, q)}>„${q}“ manuell eintragen</button>`}
+
+      <p class="fine">Lebensmittel: Bundeslebensmittelschlüssel 4.0, Max Rubner-Institut (CC BY 4.0) · Produkte: Open Food Facts (ODbL)</p>
+    </${Sheet}>`;
+}
+
+// ── Portion wählen ──
+export function openPortion(food, meal, d, opts = {}) {
+  openOverlay((o) => html`<${PortionSheet} ...${o} food=${food} meal=${meal} d=${d} ...${opts}/>`);
+}
+
+const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
+
+function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
+  const [meal, setMeal] = useState(initialMeal ?? mealForNow());
+  const [text, setText] = useState(gramText(food.grams || 100));
+  const [imgOk, setImgOk] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const grams = Math.max(0, parseNum(text) || 0);
+  const f = grams / 100;
+  const chips = [...new Set([food.grams, 50, 100, 150, 200, 250].filter(Boolean))].sort((a, b) => a - b);
+
+  const add = async () => {
+    if (!grams) return;
+    setBusy(true);
+    const entry = makeEntry({ id: uid(), meal, name: food.name, grams, per100: food.per100, src: food.src, emoji: food.emoji });
+    try {
+      await commitEntries(d, [entry], { thumb, foods: [[food, grams]] });
+      closeAll();
+    } catch (err) { toast(err.message, "⚠️"); setBusy(false); }
+  };
+
+  return html`
+    <${Sheet} id=${id} closing=${closing} title="Portion"
+      footer=${html`<button class="btn btn-primary block" disabled=${!grams || busy} onClick=${add}>
+        ${busy ? html`<span class="spinner"></span>` : html`${Icon.plus()} Hinzufügen · ${n0(food.per100.kcal * f)} kcal`}</button>`}>
+      <div class="food-hero">
+        <div class="food-emoji">${food.image && imgOk ? html`<img src=${food.image} alt="" referrerpolicy="no-referrer" onError=${() => setImgOk(false)}/>` : food.emoji}</div>
+        <div class="food-name">${food.name}</div>
+        <div class="muted" style="font-size:14px">${n0(food.per100.kcal)} kcal pro 100 g${food.source ? " · " + food.source : ""}</div>
+      </div>
+      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      <label class="label" for="grams">Menge</label>
+      <div class="stepper">
+        <button class="icon-btn fill" aria-label="Weniger" onClick=${() => { haptic(); setText(gramText(Math.max(0, grams - 10))); }}>−</button>
+        <div class="unit-input grow">
+          <input id="grams" class="field num" inputmode="decimal" value=${text} onInput=${(e) => setText(e.currentTarget.value)}
+            onFocus=${(e) => e.currentTarget.select()}/>
+          <span>g</span>
+        </div>
+        <button class="icon-btn fill" aria-label="Mehr" onClick=${() => { haptic(); setText(gramText(grams + 10)); }}>+</button>
+      </div>
+      <div class="chips" style="margin-top:10px">
+        ${chips.map((c) => html`<button class=${cx("chip", grams === c && "on")} onClick=${() => { haptic(); setText(gramText(c)); }}>${gramText(c)} g</button>`)}
+      </div>
+      <div class="nutri">
+        <div><b>${n0(food.per100.kcal * f)}</b><span>kcal</span></div>
+        <div><b style="color:var(--carbs)">${n1(food.per100.carbs * f)}</b><span>KH g</span></div>
+        <div><b style="color:var(--protein)">${n1(food.per100.protein * f)}</b><span>Eiweiß g</span></div>
+        <div><b style="color:var(--fat)">${n1(food.per100.fat * f)}</b><span>Fett g</span></div>
+      </div>
+    </${Sheet}>`;
+}
+
+// ── Manuell eintragen ──
+export function openManual(meal, d, name = "") {
+  openOverlay((o) => html`<${ManualSheet} ...${o} meal=${meal} d=${d} initialName=${name}/>`);
+}
+
+function ManualSheet({ id, closing, meal: initialMeal, d, initialName }) {
+  const [meal, setMeal] = useState(initialMeal ?? mealForNow());
+  const [v, setV] = useState({ name: initialName, kcal: "", grams: "", carbs: "", protein: "", fat: "" });
+  const [busy, setBusy] = useState(false);
+  const upd = (k) => (e) => setV({ ...v, [k]: e.currentTarget.value });
+  const kcal = parseNum(v.kcal);
+  const valid = v.name.trim() && kcal >= 0 && Number.isFinite(kcal);
+
+  const save = async () => {
+    if (!valid) return;
+    setBusy(true);
+    const grams = parseNum(v.grams) || 0;
+    const num = (x) => Math.max(0, parseNum(x) || 0);
+    const entry = [uid(), meal, v.name.trim(), grams, Math.round(kcal), num(v.protein), num(v.carbs), num(v.fat), "m", foodEmoji(v.name)];
+    try { await commitEntries(d, [entry]); closeAll(); }
+    catch (err) { toast(err.message, "⚠️"); setBusy(false); }
+  };
+
+  const field = (k, label, ph, mode = "decimal") => html`
+    <label class="label" for=${"m-" + k}>${label}</label>
+    <input id=${"m-" + k} class="field" inputmode=${mode} placeholder=${ph} value=${v[k]} onInput=${upd(k)}/>`;
+
+  return html`
+    <${Sheet} id=${id} closing=${closing} title="Manuell eintragen"
+      footer=${html`<button class="btn btn-primary block" disabled=${!valid || busy} onClick=${save}>Eintragen</button>`}>
+      <${Seg} options=${mealOptions} value=${meal} onChange=${setMeal}/>
+      ${field("name", "Bezeichnung", "z. B. Omas Apfelkuchen", "text")}
+      <div class="row" style="gap:10px;align-items:flex-start">
+        <div class="grow">${field("kcal", "Kalorien (kcal)", "0")}</div>
+        <div class="grow">${field("grams", "Menge (g, optional)", "–")}</div>
+      </div>
+      <div class="row" style="gap:10px;align-items:flex-start">
+        <div class="grow">${field("carbs", "KH (g)", "–")}</div>
+        <div class="grow">${field("protein", "Eiweiß (g)", "–")}</div>
+        <div class="grow">${field("fat", "Fett (g)", "–")}</div>
+      </div>
+    </${Sheet}>`;
+}

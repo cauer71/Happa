@@ -1,111 +1,119 @@
-# OCR-Testseite
+# Happa 🍽️
 
-Kleine Testanwendung: Text **abfotografieren** → per **OCR** erkennen → in einer **Datenbank** speichern.
+Kalorien- und Abnehm-App im Stil einer nativen Apple-App („Liquid Glass“, iOS 26):
+**Essen fotografieren → die Cloudflare-KI erkennt die Speisen → bestätigen → fertig.**
+Läuft als Web-App (PWA) vor allem am iPhone, funktioniert aber genauso am PC.
 
-Es gibt zwei Varianten mit identischer Oberfläche und identischer API:
+**Live:** https://happa.auer.page (Anmeldung über Cloudflare Access, Einmal-PIN per E-Mail)
 
-| Variante | Server | Datenbank | Start |
-| --- | --- | --- | --- |
-| lokal | `server.js` (nur Node-Standardbibliothek) | SQLite (`data/ocr.db`) | `npm start` |
-| Cloudflare | `worker/index.js` (Worker + Workers AI) | D1 (`happa-ocr`) | `npx wrangler deploy` |
+Die Analyse der Vorbild-Apps (YAZIO, MyFitnessPal, FDDB, Lifesum, Zanadio, Noom) steht in
+[`docs/ANALYSE.md`](docs/ANALYSE.md).
 
-Nur die Cloudflare-Variante kann serverseitig erkennen; lokal steht die Browser-Erkennung
-zur Verfügung (`/api/ocr` antwortet dort mit 501 und weist darauf hin).
+## Funktionen
 
-Live: **https://happa-ocr.christian-auer-71.workers.dev**
+| Bereich | Was Happa macht |
+| --- | --- |
+| **Start** | kurze Animation mit großem App-Symbol (Gabel, Avocado, Ring) |
+| **Anmeldung** | Cloudflare Access vor der ganzen Seite; der Worker prüft zusätzlich das signierte Access-Token. Jede E-Mail-Adresse hat ihr eigenes Profil. |
+| **Onboarding** | Name, Geschlecht, Geburtsjahr, Größe, Gewicht, Ziel, Aktivität, Tempo → Tagesziel nach Mifflin-St Jeor; höchstens 0,5 kg/Woche, nie unter 1.200/1.500 kcal, kein Ziel im Untergewicht |
+| **Heute** | Wochenleiste (wischen), Kalorienring, Makro-Balken, vier Mahlzeiten, Wasser-Gläser, Gewicht, Tipp des Tages |
+| **Foto-Erkennung** | Live-Kamera (oder Foto/Galerie) → Workers AI erkennt Bestandteile, Menge und Nährwerte → Mengen anpassen, KI-Schätzung oder Datenbankwert wählen, Hinweis geben und neu erkennen |
+| **Suche** | 7.140 Lebensmittel aus dem Bundeslebensmittelschlüssel (offline, im Browser) + Markenprodukte über Open Food Facts |
+| **Barcode** | eingebaute Erkennung (Android/Chrome) bzw. ZXing (iPhone), Nummer auch von Hand |
+| **Fortschritt** | Gewichtskurve mit Ziel, Kalorien der Woche, Nährstoffverteilung, Prognose „Wenn jede Woche so wäre …“, Serie mit Kalender, Abzeichen |
+| **Motivation** | Serie (🔥), 11 Abzeichen mit Konfetti, freundliche Rückmeldungen, sachliche Tipps, Haptik |
+| **Profil** | Ziele (automatisch/eigenes), Nährstoffverteilung, Wasser, Körperdaten, Hell/Dunkel, Datenexport (JSON), Abmelden, Konto löschen |
+| **Desktop** | ab 960 px schwebende Seitenleiste und zweispaltiges Layout |
 
-## Ablauf
+## Kosten: alles im kostenlosen Cloudflare-Plan
 
-1. **Browser**: Foto über die Gerätekamera aufnehmen (oder eine Bilddatei wählen).
-   Das Bild wird auf max. 1600 px verkleinert — das beschleunigt die Erkennung.
-2. **Erkennung**, wahlweise:
-   - **Server-KI** (Vorgabe, nur in der Cloudflare-Variante): `POST /api/ocr` schickt das Foto
-     an ein Vision-Modell von Workers AI. Angeben lassen sich Sprache und Art des Textes
-     (Fließtext, Tabelle/Formular, Handschrift). Deutlich genauer, ~4 s pro Seite.
-   - **Im Browser**: [Tesseract.js](https://tesseract.projectnaptha.com/), funktioniert offline,
-     liest aber merklich schlechter.
-   Der erkannte Text lässt sich vor dem Speichern korrigieren.
-3. **Server**: Es wird **ausschließlich der Text** gespeichert (mit Zeitstempel, Sprache und
-   Konfidenz). Das Foto bleibt im Browser und verlässt das Gerät nicht.
+- **Workers AI:** Gemma 4 (`@cf/google/gemma-4-26b-a4b-it`) mit abgeschaltetem „Denken“ braucht
+  etwa 6–16 Neuronen pro Foto; Llama 4 Scout springt als Ersatz ein (≈ 45–50). Das Gratis-Kontingent
+  von 10.000 Neuronen pro Tag reicht für Hunderte Fotos. Im Free-Plan wird nie etwas berechnet –
+  ist das Kontingent aufgebraucht, antwortet die KI erst am nächsten Tag wieder (die App sagt das).
+- **Tageslimit pro Person:** 40 Fotos (`AI_DAILY_LIMIT` in `wrangler.toml`).
+- **D1:** eine Zeile pro Person und eine pro Person und Tag. Die Einträge eines Tages stehen als
+  kompaktes JSON-Array in dieser Zeile – ein Tag lesen = 1 Zeile, eine Woche = 7 Zeilen.
+- **Keine Fotos in der Datenbank:** Das Foto geht einmal an die KI und ist dann weg. Das kleine
+  Vorschaubild (≈ 8 KB) bleibt nur im Browser (IndexedDB).
+- **Lebensmitteldaten** liegen als statische Datei im Repository (`public/data/foods.json`), nicht in D1.
+- „Zuletzt verwendet“ wird nur auf dem Gerät gespeichert (spart Schreibzugriffe).
 
-## Lokal starten
+## Aufbau
 
-```bash
-node server.js          # oder: npm start
-# → http://localhost:3000
+```
+worker/index.js      API unter /api/*: Profil, Tage, Einträge, Wasser, Gewicht, Export, Konto löschen
+worker/auth.js       Prüfung des Cloudflare-Access-JWT (RS256, AUD, Aussteller, Ablauf)
+worker/ai.js         Speisenerkennung (Workers AI)
+worker/off.js        Open Food Facts: Suche + Barcode, im Cloudflare-Cache zwischengespeichert
+schema.sql           D1-Schema (users, days)
+wrangler.toml        Worker, Domain, Assets, D1, AI, Access-Einstellungen
+public/              Web-App ohne Build-Schritt (Preact + htm liegen in public/vendor)
+  index.html         Startanimation, Import-Map
+  css/app.css        Liquid-Glass-Gestaltung, hell/dunkel, Desktop-Layout
+  js/app.js          Einstieg, Tabs, Overlays
+  js/store.js        Zustand + Aktionen (optimistische Updates)
+  js/views/*.js      Heute, Hinzufügen/Portion/Manuell, Kamera, Eintrag, Gewicht, Fortschritt, Profil, Onboarding
+  js/foods.js        BLS-Suche im Browser
+  sw.js              Service Worker (App offline starten, Lebensmittelsuche offline)
+  data/foods.json    BLS 4.0 kompakt (7.140 Lebensmittel, ~130 KB komprimiert)
+  icons/             App-Symbole + Manifest (per Access-Ausnahme öffentlich, für den Home-Bildschirm)
+scripts/build-foods.py   BLS-Excel → foods.json
+scripts/build-icons.mjs  icon.svg → PNG-Symbole
+docs/ANALYSE.md      Analyse der sechs Abnehm-Apps
 ```
 
-Keine Laufzeit-Abhängigkeiten: Der Server nutzt nur `node:http` und `node:sqlite` (ab Node 22.5).
-Tesseract.js wird im Browser vom CDN geladen; die Sprachdaten werden einmalig heruntergeladen
-und danach gecacht.
-
-### Kamera-Hinweis
-
-`getUserMedia` funktioniert nur unter `https://` oder `http://localhost`. Auf dem Handy daher
-die Cloudflare-URL nutzen oder den Button „Bild auswählen“ — dieser öffnet auf Mobilgeräten
-direkt die Kamera.
-
-## Cloudflare (Worker + D1)
-
-```bash
-npm install                                  # wrangler als devDependency
-npx wrangler d1 execute happa-ocr --remote --file=schema.sql   # Tabelle anlegen
-npx wrangler deploy                          # Worker + statische Dateien hochladen
-npx wrangler dev                             # lokal gegen eine D1-Kopie entwickeln
-```
-
-Konfiguration in `wrangler.toml`: `public/` wird als statisches Asset ausgeliefert,
-alles unter `/api/` beantwortet der Worker, die D1-Datenbank hängt am Binding `DB`.
-Zum Deployen braucht `wrangler` einen API-Token in `CLOUDFLARE_API_TOKEN`
-(oder einmalig `npx wrangler login`) — niemals im Repository ablegen.
-
-## Datenbank
-
-Beide Varianten nutzen dasselbe Schema (`schema.sql`):
-
-```sql
-CREATE TABLE scans (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  created_at TEXT NOT NULL,   -- ISO-Zeitstempel
-  text       TEXT NOT NULL,   -- erkannter (ggf. korrigierter) Text
-  language   TEXT,            -- z. B. "Deutsch" oder "Deutsch und Italienisch gemischt"
-  confidence REAL,            -- nur bei der Browser-Erkennung gefüllt
-  engine     TEXT             -- "ai" (Workers AI) oder "tesseract"
-);
-```
-
-## API
+### API
 
 | Methode | Pfad | Zweck |
 | --- | --- | --- |
-| `POST` | `/api/ocr` | Foto ablesen: `{ imageDataUrl, language, mode }` → `{ text, model }` |
-| `GET` | `/api/scans?limit=n` | Liste der Einträge, neueste zuerst |
-| `POST` | `/api/scans` | Eintrag anlegen: `{ text, language, confidence }` |
-| `GET` | `/api/scans/:id` | Einzelner Eintrag |
-| `DELETE` | `/api/scans/:id` | Eintrag löschen |
+| GET | `/api/me?d=JJJJMMTT` | Profil, heutiger Tag, Serie, letzte Wiegung |
+| PUT | `/api/profile` | Profil speichern |
+| GET | `/api/days?from=&to=` | Tage eines Zeitraums |
+| PUT | `/api/days/:d` | Wasser (ml) und/oder Gewicht (kg) setzen |
+| POST | `/api/days/:d/entries` | Eintrag hinzufügen |
+| PUT / DELETE | `/api/days/:d/entries/:id` | Eintrag ändern / löschen |
+| GET | `/api/weights` | alle Wiegungen |
+| POST | `/api/recognize` | Foto erkennen: `{ image, d, hint? }` |
+| GET | `/api/food/search?q=` | Open Food Facts durchsuchen |
+| GET | `/api/food/barcode/:ean` | Produkt per Barcode |
+| GET | `/api/export` | alle eigenen Daten als JSON |
+| DELETE | `/api/me` | Konto und alle Daten löschen |
+
+Eintrag: `[id, Mahlzeit 0–3, Name, Gramm, kcal, Eiweiß, Kohlenhydrate, Fett, Quelle, Emoji]`,
+Quelle `k` = KI-Foto, `b` = BLS, `o` = Open Food Facts, `m` = manuell.
+
+## Entwickeln und veröffentlichen
 
 ```bash
-curl -X POST https://happa-ocr.christian-auer-71.workers.dev/api/scans \
-  -H 'content-type: application/json' \
-  -d '{"text":"Hallo Welt","language":"deu","confidence":91.5}'
+npm install
+cp .dev.vars.example .dev.vars              # meldet lokal test@example.com an
+npm run db:init:local                       # Tabellen in der lokalen D1-Kopie
+npm run dev                                 # http://localhost:8787 (KI läuft über Cloudflare)
+
+export CLOUDFLARE_API_TOKEN=…               # niemals ins Repository!
+npm run db:init                             # einmalig: Tabellen in der echten D1
+npm run deploy
 ```
 
-## Dateien
+### Cloudflare Access
 
-```
-server.js          lokaler HTTP-Server mit SQLite
-worker/index.js    Cloudflare Worker mit D1 und Workers AI
-wrangler.toml      Worker-Konfiguration (Assets + D1-Binding)
-schema.sql         Tabellendefinition
-public/index.html  Oberfläche
-public/app.js      Kamera, OCR, Speichern, Liste
-public/style.css   Styling (hell/dunkel)
-```
+- Anwendung **„Happa“** für `happa.auer.page`: Einmal-PIN per E-Mail, Sitzung 730 h,
+  Regel „Familie“ (erlaubte E-Mail-Adressen) und eine Service-Token-Regel für automatische Tests.
+- Anwendung **„Happa – Symbole öffentlich“** für `happa.auer.page/icons`: *Bypass*, damit iOS das
+  Home-Bildschirm-Symbol und das Manifest ohne Anmeldung laden kann.
+- Weitere Personen freischalten: Zero Trust → Access → Anwendungen → Happa → Regel „Familie“ → E-Mail hinzufügen.
+  Jede Person bekommt beim ersten Öffnen ihr eigenes, leeres Profil.
+- `ACCESS_AUD` in `wrangler.toml` ist das „Application Audience (AUD) Tag“ der Anwendung.
 
-## Offene Punkte für einen echten Einsatz
+### Auf dem iPhone installieren
 
-- **Die Seite ist offen erreichbar** — vor produktivem Einsatz Zugriffsschutz ergänzen
-  (Cloudflare Access oder ein einfacher Token-Check im Worker).
-- Volltextsuche über die gespeicherten Texte (SQLite/D1 FTS5)
-- Workers AI hat ein Gratis-Kontingent von 10.000 Neuronen pro Tag (Free- und Paid-Plan);
-  darüber hinaus wird nach Verbrauch abgerechnet. Nutzung: Cloudflare-Dashboard → Workers AI.
+Safari → https://happa.auer.page → anmelden → Teilen → **Zum Home-Bildschirm**.
+
+## Datenquellen und Lizenzen
+
+- **Bundeslebensmittelschlüssel (BLS) 4.0** – Max Rubner-Institut (2025), Deutsche Nährstoffdatenbank,
+  Karlsruhe, DOI 10.25826/Data20251217-134202-0, Lizenz CC BY 4.0 (https://blsdb.de)
+- **Open Food Facts** – Datenbank unter ODbL (https://world.openfoodfacts.org)
+- **Preact** und **htm** – MIT-Lizenz (`public/vendor/LICENSE-*.txt`)
+- Happa ersetzt keine ärztliche Beratung. Die KI liefert Schätzungen.

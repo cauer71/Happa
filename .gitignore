@@ -1,6 +1,5 @@
 node_modules/
-data/*.db
-data/*.db-journal
+.wrangler/
+.dev.vars
 *.log
 .DS_Store
-.wrangler/
