@@ -124,7 +124,8 @@ Chat über die eigenen Daten und Rezepte fürs Restbudget – über das eigene C
 Fotos gehen in Artifacts nicht; dafür ist der normale Claude-Chat mit dem Connector da.
 
 In Happa erklärt eine kurze, animierte Anleitung (`public/js/claude.js`) den Ablauf; sie erscheint einmal als Karte
-auf „Heute“ und steht danach im Profil unter „Happa mit Claude“.
+auf „Heute“ und steht danach im Profil unter „Happa mit Claude“. Das Verbinden und weitere Themen stehen im
+Hilfe-Bereich (Profil → Hilfe, `public/js/views/help.js`); der Coach hat unten ebenfalls eine Hilfe.
 
 ## Happa-Connector für Claude (Test)
 

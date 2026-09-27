@@ -1,21 +1,16 @@
 // „Happa mit Claude“: einmalige Karte auf „Heute“, Bereich im Profil und eine kurze,
-// animierte Anleitung (Connector verbinden → Foto/Frage im Chat → Nährwerte → Eintrag → Coach).
+// animierte Anleitung (Foto/Frage im Chat → Nährwerte → Eintrag → Coach). Das Verbinden steht in der Hilfe.
 // Entfernen: diese Datei löschen, in views/today.js und views/profile.js Import und Karte streichen.
 import { useEffect, useState } from "preact/hooks";
 import { html, cx, haptic, reduceMotion } from "./util.js";
 import { Icon } from "./icons.js";
-import { useStore, openOverlay, closeOverlay, saveProfile, toast, state } from "./store.js";
+import { useStore, openOverlay, closeOverlay, saveProfile, state } from "./store.js";
 import { Sheet } from "./ui.js";
+import { openHelp } from "./views/help.js";
 
 export const COACH_URL = "https://claude.ai/artifact/WY5UBBEojUFsZmzDwxHJJr";
 export const MCP_URL = "https://happa-mcp.auer.page/mcp";
 const STEP_MS = 5200;
-
-async function copyUrl() {
-  haptic();
-  try { await navigator.clipboard.writeText(MCP_URL); toast("Adresse kopiert", "📋"); }
-  catch { toast(MCP_URL, "📋"); }
-}
 
 const markSeen = () => { if (!state.profile.claudeSeen) saveProfile({ claudeSeen: 1 }).catch(() => {}); };
 
@@ -26,15 +21,6 @@ export function openClaudeGuide() {
 
 // ── Szenen: kleine Nachbauten von Claude und Happa, die sich beim Anzeigen aufbauen ──
 const SCENES = {
-  connect: () => html`
-    <div class="cg-phone">
-      <div class="cg-bar">Einstellungen · Connectors</div>
-      <div class="cg-row cg-a1"><span class="cg-plus">+</span> Benutzerdefinierten Connector hinzufügen</div>
-      <div class="cg-field cg-a2"><small>Name</small><span class="cg-type cg-t1">Happa</span></div>
-      <div class="cg-field cg-a3"><small>MCP-Server-URL</small><span class="cg-type cg-t2">happa-mcp.auer.page/mcp</span></div>
-      <div class="cg-btn cg-a4">Hinzufügen</div>
-      <div class="cg-ok cg-a5">${Icon.check()} Happa verbunden</div>
-    </div>`,
   chat: () => html`
     <div class="cg-phone cg-chat">
       <div class="cg-bar">Claude</div>
@@ -73,7 +59,6 @@ const SCENES = {
 };
 
 const STEPS = [
-  { scene: "connect", title: "Einmal verbinden", text: "In Claude unter Einstellungen → Connectors einen benutzerdefinierten Connector hinzufügen: Name „Happa“ und die Adresse unten. Dann mit deiner Happa-E-Mail anmelden und „Erlauben“ tippen." },
   { scene: "chat", title: "Fotografieren oder fragen", text: "Im Claude-Chat dein Essen oder den Kühlschrank fotografieren – oder einfach per Sprache fragen." },
   { scene: "calc", title: "Echte Nährwerte", text: "Claude schätzt die Mengen und rechnet mit den Werten aus dem Bundeslebensmittelschlüssel. Dein Restbudget kennt es aus Happa." },
   { scene: "log", title: "Direkt in Happa", text: "Sag „trag es ein“ – der Eintrag steht sofort in deinem Tagebuch. Ändern oder löschen geht nur hier in der App." },
@@ -111,8 +96,6 @@ function GuideSheet({ id, closing }) {
         <div class="cg-step">Schritt ${step + 1} von ${STEPS.length}</div>
         <h2>${s.title}</h2>
         <p>${s.text}</p>
-        ${s.scene === "connect" && html`
-          <button class="cg-url" onClick=${copyUrl} aria-label="Connector-Adresse kopieren"><code>${MCP_URL}</code><span>Kopieren</span></button>`}
         ${s.scene === "coach" && html`
           <a class="btn btn-glass block" href=${COACH_URL} target="_blank" rel="noopener" onClick=${markSeen}>${Icon.sparkles()} Coach öffnen</a>`}
       </div>
@@ -150,10 +133,10 @@ export function ClaudeCard() {
           <span class="grow">Happa Coach öffnen</span>
           <span class="chev">${Icon.chevron()}</span>
         </a>
-        <button class="list-row" onClick=${copyUrl}>
-          <span class="list-icon" style="background:#8e8e93">📋</span>
-          <span class="grow">Connector-Adresse kopieren</span>
-          <span class="list-value">happa-mcp…</span>
+        <button class="list-row" onClick=${() => openHelp("connect")}>
+          <span class="list-icon" style="background:#8e8e93">🔌</span>
+          <span class="grow">Mit Claude verbinden</span>
+          <span class="chev">${Icon.chevron()}</span>
         </button>
       </section>
     </div>`;

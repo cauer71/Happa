@@ -189,6 +189,17 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
 .connect ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .connect code { font-size: 13px; overflow-wrap: anywhere; }
 
+.help-coach { padding: 0; }
+.help-coach summary { cursor: pointer; padding: 16px 18px; font-weight: 700; font-size: 17px; list-style: none; display: flex; justify-content: space-between; }
+.help-coach summary::-webkit-details-marker { display: none; }
+.help-coach summary::after { content: "›"; color: var(--text-3); transition: transform .2s; }
+.help-coach[open] summary::after { transform: rotate(90deg); }
+.help-coach-body { padding: 0 18px 18px; font-size: 15px; }
+.help-coach-body h3 { font-size: 16px; margin: 10px 0 6px; }
+.help-coach-body ol { margin: 0 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.help-coach-body p { margin: 0 0 8px; color: var(--text-2); }
+.help-coach-body code { font-size: 13px; overflow-wrap: anywhere; }
+
 .foot { font-size: 13px; color: var(--text-3); text-align: center; margin: 4px 0 0; }
 
 @media (prefers-reduced-motion: reduce) { .dot3 i { animation: none; opacity: .8; } }
@@ -274,6 +285,23 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
     <div id="recipes-out" class="recipes" aria-live="polite"></div>
   </section>
 
+
+  <details class="card help-coach" id="help">
+    <summary>Hilfe</summary>
+    <div class="help-coach-body">
+      <h3>Happa mit Claude verbinden</h3>
+      <ol>
+        <li>Claude → Einstellungen → Connectors → <b>Benutzerdefinierten Connector hinzufügen</b></li>
+        <li>Name <b>Happa</b>, URL <code>https://happa-mcp.auer.page/mcp</code></li>
+        <li>Mit der Happa-E-Mail anmelden und <b>Erlauben</b> tippen</li>
+        <li>„Schreibgeschützte Tools“ auf <b>Immer erlauben</b> stellen, dann oben <b>Aktualisieren</b></li>
+      </ol>
+      <h3>Fotos und Eintragen</h3>
+      <p>Fotos gehen im Coach nicht. Schick sie im normalen Claude-Chat, zum Beispiel: „Schätz das und trag es als Mittagessen ein“ oder „Was kann ich aus meinem Kühlschrank kochen?“. Claude rechnet mit dem Bundeslebensmittelschlüssel und trägt auf Wunsch in Happa ein.</p>
+      <h3>Wenn keine Daten kommen</h3>
+      <p>Prüfe unter Einstellungen → Connectors, ob Happa verbunden ist, und tippe oben auf <b>Aktualisieren</b>.</p>
+    </div>
+  </details>
 
   <p class="foot">Test-Version · nutzt dein Claude-Kontingent · ersetzt keine ärztliche Beratung</p>
 </div>

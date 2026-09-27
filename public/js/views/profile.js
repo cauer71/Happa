@@ -7,6 +7,7 @@ import { Sheet, Seg, NavBar, useScrolled } from "../ui.js";
 import { ACTIVITY, SEXES, PACES, plan, bmi } from "../nutrition.js";
 import { BadgesCard } from "./progress.js";
 import { ClaudeCard } from "../claude.js";
+import { openHelp } from "./help.js";
 
 const SPLITS = [
   { id: "balanced", name: "Ausgewogen", split: { carbs: 50, protein: 20, fat: 30 }, desc: "Empfehlung der DGE" },
@@ -92,6 +93,17 @@ export function ProfileView() {
               </button>
               <button class="list-row" onClick=${() => { haptic(); openDelete(); }}>
                 <span class="list-icon" style="background:var(--danger)">${Icon.trash()}</span><span class="grow" style="color:var(--danger)">Konto und Daten löschen</span>
+              </button>
+            </section>
+          </div>
+
+          <div>
+            <div class="section-title">Hilfe</div>
+            <section class="card list">
+              <button class="list-row" onClick=${() => openHelp()}>
+                <span class="list-icon" style="background:#34aadc">${Icon.info()}</span>
+                <span class="grow">Hilfe und Anleitungen</span>
+                <span class="chev">${Icon.chevron()}</span>
               </button>
             </section>
           </div>

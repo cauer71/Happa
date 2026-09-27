@@ -854,6 +854,19 @@ a { color: var(--accent-text); }
 .cg-dots-nav button.on { width: 26px; background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .cg-dots-nav button i { position: absolute; inset: 0; background: var(--accent); transform-origin: left; animation: cg-progress linear forwards; }
 
+/* Hilfe */
+.help { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
+.help-item { border-radius: 18px; background: var(--card-solid); border: .5px solid var(--sep); overflow: hidden; }
+.help-item summary { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; font-weight: 600; font-size: 16px; list-style: none; }
+.help-item summary::-webkit-details-marker { display: none; }
+.help-item .chev { transition: transform .25s var(--spring); }
+.help-item[open] .chev { transform: rotate(90deg); }
+.help-e { font-size: 20px; width: 28px; text-align: center; }
+.help-body { padding: 0 16px 16px; font-size: 15px; line-height: 1.5; animation: cg-in .3s var(--spring) both; }
+.help-body p { margin: 0 0 10px; }
+.help-body ol, .help-body ul { margin: 0 0 10px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.help-body .btn { margin-top: 4px; }
+
 @keyframes cg-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes cg-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
 @keyframes cg-type { to { max-width: 100%; } }
