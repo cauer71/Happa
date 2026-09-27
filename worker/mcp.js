@@ -384,7 +384,15 @@ async function handleRpc(msg, env, email, scopes) {
       out = rpcResult(msg.id, {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : FALLBACK_VERSION,
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
-        serverInfo: { name: "happa", title: "Happa", version: "0.1.0" },
+        serverInfo: {
+          name: "happa", title: "Happa", version: "0.2.0",
+          websiteUrl: "https://happa.auer.page",
+          icons: [
+            { src: `https://${MCP_HOST}/icon-192.png`, mimeType: "image/png", sizes: ["192x192"] },
+            { src: `https://${MCP_HOST}/icon-512.png`, mimeType: "image/png", sizes: ["512x512"] },
+            { src: `https://${MCP_HOST}/icon.svg`, mimeType: "image/svg+xml", sizes: ["any"] },
+          ],
+        },
         instructions: "Happa ist eine Kalorien- und Abnehm-App. Die Werkzeuge gelten nur für die angemeldete Person. Antworte auf Deutsch. Kalorienwerte sind Schätzungen; empfiehl nie weniger als 1.200 kcal (Frauen) bzw. 1.500 kcal (Männer) pro Tag. Für Kalorienangaben zu Fotos, Rezepten und Mahlzeiten die Werte pro 100 g mit happa_naehrwerte holen und auf die geschätzte Menge umrechnen, statt frei zu schätzen. happa_eintragen nur verwenden, wenn die Person ausdrücklich eintragen möchte; nenne vorher kurz, was eingetragen wird.",
       });
       break;

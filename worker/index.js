@@ -425,7 +425,25 @@ export default {
         return resourceServer.fetch(request, env, ctx);
       }
       if (p === "/token" || p === "/register" || p.startsWith("/.well-known/")) return authServer.fetch(request, env, ctx);
-      return new Response("Happa-Connector für Claude: " + MCP_RESOURCE, { status: p === "/" ? 200 : 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+      // Symbol für Claudes Connector-Liste (Favicon, Startseite, serverInfo.icons)
+      const icon = { "/favicon.ico": "favicon-32.png", "/favicon.png": "icon-192.png", "/icon.png": "icon-192.png", "/icon-192.png": "icon-192.png",
+        "/icon-512.png": "icon-512.png", "/icon.svg": "icon.svg", "/apple-touch-icon.png": "apple-touch-icon.png" }[p];
+      if (icon) {
+        const res = await env.ASSETS.fetch(new Request(`https://happa.auer.page/icons/${icon}`));
+        const out = new Response(res.body, res);
+        out.headers.set("cache-control", "public, max-age=86400");
+        out.headers.set("access-control-allow-origin", "*");
+        return out;
+      }
+      if (p === "/") {
+        return new Response(`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Happa</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:title" content="Happa"><meta property="og:image" content="https://${MCP_HOST}/icon-512.png"></head>
+<body style="font:16px -apple-system,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;background:#eef1f5;color:#0b0b0f;text-align:center">
+<div><img src="/icon-192.png" width="96" height="96" alt="" style="border-radius:22px"><h1 style="margin:12px 0 4px">Happa</h1><p style="margin:0;color:#5f6470">Connector für Claude: ${MCP_RESOURCE}</p></div></body></html>`,
+          { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } });
+      }
+      return new Response("Not found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     }
     if (url.pathname === "/connect") return connect(request, env, authServer.getOAuthApi(env));
     return app.fetch(request, env, ctx);
