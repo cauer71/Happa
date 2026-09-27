@@ -13,7 +13,7 @@ import { searchProducts, productByBarcode } from "./off.js";
 import { OAuthAuthorizationServer, OAuthResourceServer } from "@cloudflare/workers-oauth-provider";
 import { mcpApi, connect, MCP_HOST, MCP_RESOURCE, MCP_SCOPES, CONNECT_URL } from "./mcp.js";
 
-const MAX_PROFILE_BYTES = 16000;
+const MAX_PROFILE_BYTES = 48000; // inkl. Favoriten (bis 30 × 15 Teile)
 const MAX_BODY_BYTES = 64_000;
 const MAX_IMAGE_BYTES = 3_000_000;
 const MAX_BATCH = 10;

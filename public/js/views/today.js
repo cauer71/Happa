@@ -10,6 +10,7 @@ import { openEntry } from "./entry.js";
 import { openWeight } from "./weight.js";
 import { openCamera } from "./camera.js";
 import { ClaudePromo } from "../claude.js";
+import { openFavorite } from "./favorites.js";
 
 export function useMedia(query) {
   const [match, setMatch] = useState(() => matchMedia(query).matches);
@@ -259,6 +260,8 @@ function MealCard({ meal, day, kcal }) {
           <div class="meal-name">${meal.name}</div>
           <div class="meal-sub">${entries.length ? html`<span class="num">${n0(kcal)}</span> kcal · ${entries.length} ${entries.length === 1 ? "Eintrag" : "Einträge"}` : "Noch nichts eingetragen"}</div>
         </div>
+        ${entries.length > 0 && html`<button class="icon-btn sm fill" aria-label=${`${meal.name} als Favorit speichern`}
+          onClick=${() => openFavorite({ entries, meal: meal.id, d: day.d })}>${Icon.star()}</button>`}
         <button class="icon-btn sm fill" aria-label=${`Foto für ${meal.name}`} onClick=${() => { haptic(); openCamera({ meal: meal.id, d: day.d }); }}>${Icon.camera()}</button>
         <button class="icon-btn tint" aria-label=${`${meal.name} hinzufügen`} onClick=${() => { haptic(); openAdd(meal.id, day.d); }}>${Icon.plus()}</button>
       </div>

@@ -8,6 +8,7 @@ import { MEALS, mealForNow, makeEntry, totals, foodEmoji } from "../nutrition.js
 import { searchFoods, productAsFood } from "../foods.js";
 import { api } from "../api.js";
 import { openCamera } from "./camera.js";
+import { FavoritesSection } from "./favorites.js";
 
 export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
 const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
@@ -105,11 +106,13 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
           <button onClick=${() => { closeOverlay(id, { replace: true }); openCamera({ meal, d, mode: "barcode" }); }}>${Icon.barcode()}Barcode</button>
           <button onClick=${() => openManual(meal, d)}>${Icon.pencil()}Manuell</button>
         </div>
+        <${FavoritesSection} meal=${meal} d=${d}/>
         <div class="group-label">Zuletzt verwendet</div>
         ${recent.length ? html`<div class="results">${recent.map(Row)}</div>`
           : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheinen deine zuletzt verwendeten Lebensmittel, sobald du etwas eingetragen hast.</div>`}`}
 
       ${q && html`
+        <${FavoritesSection} meal=${meal} d=${d} q=${q}/>
         <div class="group-label">Lebensmittel</div>
         ${local.length ? html`<div class="results">${local.map(Row)}</div>`
           : html`<div class="muted" style="font-size:15px;padding:6px 0">${q.trim().length < 2 ? "Mindestens 2 Buchstaben eingeben" : "Keine Treffer in der Lebensmitteldatenbank"}</div>`}

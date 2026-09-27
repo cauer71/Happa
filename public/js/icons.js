@@ -21,6 +21,7 @@ export const Icon = {
   back: () => svg(html`<path d="M15 5l-7 7 7 7"/>`),
   left: () => svg(html`<path d="M14.5 6l-6 6 6 6"/>`),
   right: () => svg(html`<path d="M9.5 6l6 6-6 6"/>`),
+  star: () => svg(html`<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>`),
   trash: () => svg(html`<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>`),
   scale: () => svg(html`<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M8.5 9a5 5 0 0 1 7 0L13 11.5"/>`),
   drop: () => svg(html`<path d="M12 3.5s6 6.4 6 10.5a6 6 0 0 1-12 0c0-4.1 6-10.5 6-10.5z"/>`),

@@ -185,17 +185,45 @@ async function toolFoods(env, email, args) {
   };
 }
 
+// ── Favoriten (im Profil gespeicherte Mahlzeit-Kombinationen) ──
+const favList = (profile) => (Array.isArray(profile.favorites) ? profile.favorites : []);
+const findFav = (profile, name) => {
+  const n = String(name || "").trim().toLowerCase();
+  const list = favList(profile);
+  return list.find((f) => f.n.toLowerCase() === n) || list.find((f) => f.n.toLowerCase().includes(n));
+};
+
+TOOLS.push({
+  name: "happa_favoriten",
+  title: "Happa: Favoriten",
+  description: "Liest die gespeicherten Favoriten der Person: Mahlzeit-Kombinationen mit eigenem Namen (z. B. „Pasta-Abend“) mit allen Teilen, Mengen und Nährwerten. Einen Favoriten trägt happa_eintragen mit dem Feld „favorit“ ein.",
+  inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  annotations: { title: "Happa: Favoriten", readOnlyHint: true, openWorldHint: false },
+});
+
+async function toolFavorites(env, email) {
+  const user = await loadUser(env, email);
+  return {
+    favoriten: favList(user.profile).map((f) => ({
+      name: f.n,
+      kcal: r0(f.items.reduce((a, it) => a + (it[2] || 0), 0)),
+      teile: f.items.map((it) => ({ name: it[0], gramm: it[1], kcal: it[2], eiweiss_g: it[3], kh_g: it[4], fett_g: it[5] })),
+    })),
+  };
+}
+
 const MEAL_IDS = { fruehstueck: 0, "frühstück": 0, mittagessen: 1, abendessen: 2, snack: 3, snacks: 3 };
 
 TOOLS.push({
   name: "happa_eintragen",
   title: "Happa: Eintragen",
-  description: "Trägt Lebensmittel in das Happa-Tagebuch der angemeldeten Person ein (nur hinzufügen – nichts ändern oder löschen). Nur aufrufen, wenn die Person das ausdrücklich möchte, und die Werte vorher nennen. Nährwerte gelten für die angegebene Menge (nicht pro 100 g). Höchstens 10 Einträge pro Aufruf. Antwortet mit den neuen Tagessummen und dem Restbudget.",
+  description: "Trägt Lebensmittel in das Happa-Tagebuch der angemeldeten Person ein (nur hinzufügen – nichts ändern oder löschen). Nur aufrufen, wenn die Person das ausdrücklich möchte, und die Werte vorher nennen. Entweder „eintraege“ angeben (Nährwerte gelten für die angegebene Menge, nicht pro 100 g; höchstens 10) oder „favorit“ mit dem Namen eines gespeicherten Favoriten (siehe happa_favoriten). Antwortet mit den neuen Tagessummen und dem Restbudget.",
   inputSchema: {
     type: "object",
     properties: {
       mahlzeit: { type: "string", enum: ["fruehstueck", "mittagessen", "abendessen", "snack"], description: "Mahlzeit, zu der eingetragen wird" },
       datum: { type: "string", description: "Datum als JJJJ-MM-TT, leer = heute (höchstens 30 Tage zurück)" },
+      favorit: { type: "string", description: "Name eines gespeicherten Favoriten – statt „eintraege“" },
       eintraege: {
         type: "array", minItems: 1, maxItems: 10,
         items: {
@@ -214,7 +242,7 @@ TOOLS.push({
         },
       },
     },
-    required: ["mahlzeit", "eintraege"],
+    required: ["mahlzeit"],
     additionalProperties: false,
   },
   annotations: { title: "Happa: Eintragen", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
@@ -232,8 +260,14 @@ async function toolAdd(env, email, args, scopes) {
   const today = todayLocal();
   const d = parseDate(args.datum);
   if (d > addDays(today, 1) || d < addDays(today, -30)) throw new ToolError("Eintragen geht nur für die letzten 30 Tage.");
-  const list = Array.isArray(args.eintraege) ? args.eintraege : [];
-  if (!list.length || list.length > 10) throw new ToolError("1 bis 10 Einträge pro Aufruf.");
+  const user = await loadUser(env, email);
+  let list = Array.isArray(args.eintraege) ? args.eintraege : [];
+  if (args.favorit) {
+    const fav = findFav(user.profile, args.favorit);
+    if (!fav) throw new ToolError(`Kein Favorit „${String(args.favorit).slice(0, 40)}“ gefunden. Gespeichert: ${favList(user.profile).map((f) => f.n).join(", ") || "keine"}.`);
+    list = fav.items.map((it) => ({ name: it[0], gramm: it[1], kcal: it[2], eiweiss_g: it[3], kh_g: it[4], fett_g: it[5], emoji: it[7] }));
+  }
+  if (!list.length || list.length > 15) throw new ToolError("1 bis 10 Einträge pro Aufruf (oder einen Favoriten).");
   // gleiche Grenzen wie in der App (worker/index.js → cleanEntry); Quelle „k“ = KI-Schätzung
   const entries = list.map((e) => {
     const name = String(e?.name || "").trim().slice(0, 80) || "Eintrag";
@@ -241,7 +275,6 @@ async function toolAdd(env, email, args, scopes) {
     return [newId(), meal, name, r1(num(e?.gramm, 5000)), r0(num(e?.kcal, 10000)),
       r1(num(e?.eiweiss_g, 1000)), r1(num(e?.kh_g, 1000)), r1(num(e?.fett_g, 1000)), "k", emoji];
   });
-  const user = await loadUser(env, email);
   const params = entries.map((e) => JSON.stringify(e));
   const refs = params.map((_, i) => `json(?${i + 3})`);
   const row = await env.DB.prepare(
@@ -367,7 +400,7 @@ So gehst du vor:
   },
 ];
 
-const HANDLERS = { happa_zusammenfassung: toolSummary, happa_tag: toolDay, happa_gewicht: toolWeight, happa_naehrwerte: toolFoods, happa_eintragen: toolAdd };
+const HANDLERS = { happa_zusammenfassung: toolSummary, happa_tag: toolDay, happa_gewicht: toolWeight, happa_naehrwerte: toolFoods, happa_favoriten: toolFavorites, happa_eintragen: toolAdd };
 
 // ── MCP über HTTP (JSON-RPC 2.0, zustandslos, Antwort als JSON) ──
 const rpcResult = (id, result) => ({ jsonrpc: "2.0", id, result });

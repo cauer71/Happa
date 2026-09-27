@@ -47,6 +47,16 @@ const TOPICS = [
       <a class="btn btn-glass block" href=${COACH_URL} target="_blank" rel="noopener">Coach öffnen</a>`,
   },
   {
+    id: "favorites", e: "⭐", title: "Favoriten",
+    body: () => html`
+      <p>Kombinationen, die du oft isst – z. B. „Pasta-Abend“ mit 300 g Spaghetti, 25 g Thunfisch und 330 ml hellem Bier – speicherst du einmal und trägst sie danach mit einem Tipp ein.</p>
+      <ul>
+        <li><b>Anlegen:</b> auf „Heute“ bei einer Mahlzeit auf den Stern tippen – oder beim Hinzufügen „Neuer Favorit“.</li>
+        <li><b>Eintragen:</b> beim Hinzufügen unter „Favoriten“ auf ＋ tippen. Antippen öffnet den Favoriten: Mengen anpassen, Teile entfernen oder hinzufügen, umbenennen, löschen.</li>
+        <li><b>Mit Claude:</b> „Trag meinen Pasta-Abend als Abendessen ein.“</li>
+      </ul>`,
+  },
+  {
     id: "photo", e: "📸", title: "Essen fotografieren in Happa",
     body: () => html`
       <ul>
