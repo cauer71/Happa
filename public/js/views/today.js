@@ -11,6 +11,7 @@ import { openWeight } from "./weight.js";
 import { openCamera } from "./camera.js";
 import { ClaudePromo } from "../claude.js";
 import { openFavorite } from "./favorites.js";
+import { EnergyCard } from "./health.js";
 
 export function useMedia(query) {
   const [match, setMatch] = useState(() => matchMedia(query).matches);
@@ -35,6 +36,7 @@ export function TodayView() {
   const cards = {
     kcal: html`<${CalorieCard} t=${t} g=${g} d=${d}/>`,
     claude: html`<${ClaudePromo}/>`,
+    energy: html`<${EnergyCard} day=${day} isToday=${d === s.today}/>`,
     meals: MEALS.map((m) => html`<${MealCard} key=${m.id} meal=${m} day=${day} kcal=${t.meals[m.id] || 0}/>`),
     water: html`<${WaterCard} day=${day} goal=${g.water}/>`,
     weight: html`<${WeightCard} d=${d} day=${day}/>`,
@@ -63,11 +65,11 @@ export function TodayView() {
 
       ${wide ? html`
         <div class="grid-2" style="margin-top:14px">
-          <div class="stack">${cards.kcal}${cards.claude}${cards.water}${cards.weight}${cards.tip}</div>
+          <div class="stack">${cards.kcal}${cards.energy}${cards.claude}${cards.water}${cards.weight}${cards.tip}</div>
           <div class="stack">${cards.meals}</div>
         </div>` : html`
         <div class="stack fade-list" style="margin-top:14px">
-          ${cards.kcal}${cards.claude}${cards.meals}${cards.water}${cards.weight}${cards.tip}
+          ${cards.kcal}${cards.energy}${cards.claude}${cards.meals}${cards.water}${cards.weight}${cards.tip}
         </div>`}
     </main>`;
 }

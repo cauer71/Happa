@@ -14,5 +14,16 @@ CREATE TABLE IF NOT EXISTS days (
   water  INTEGER NOT NULL DEFAULT 0,          -- getrunken in ml
   weight REAL,                                -- Gewicht in kg (nur an Wiegetagen)
   ai     INTEGER NOT NULL DEFAULT 0,          -- KI-Erkennungen an diesem Tag (Tageslimit)
+  act    TEXT,                                -- Verbrauch aus Apple Health (JSON, siehe worker/health.js)
   PRIMARY KEY (uid, d)
 ) WITHOUT ROWID;
+
+-- Schlüssel für den Import aus Health Auto Export (nur der SHA-256-Hash wird gespeichert)
+CREATE TABLE IF NOT EXISTS health_keys (
+  hash    TEXT PRIMARY KEY,
+  uid     INTEGER NOT NULL,
+  created INTEGER NOT NULL
+) WITHOUT ROWID;
+
+-- Bestehende Datenbank nachrüsten (einmalig):
+--   ALTER TABLE days ADD COLUMN act TEXT;

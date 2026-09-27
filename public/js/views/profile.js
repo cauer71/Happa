@@ -8,6 +8,7 @@ import { ACTIVITY, SEXES, PACES, plan, bmi } from "../nutrition.js";
 import { BadgesCard } from "./progress.js";
 import { ClaudeCard } from "../claude.js";
 import { openHelp } from "./help.js";
+import { openHealth } from "./health.js";
 
 const SPLITS = [
   { id: "balanced", name: "Ausgewogen", split: { carbs: 50, protein: 20, fat: 30 }, desc: "Empfehlung der DGE" },
@@ -93,6 +94,17 @@ export function ProfileView() {
               </button>
               <button class="list-row" onClick=${() => { haptic(); openDelete(); }}>
                 <span class="list-icon" style="background:var(--danger)">${Icon.trash()}</span><span class="grow" style="color:var(--danger)">Konto und Daten löschen</span>
+              </button>
+            </section>
+          </div>
+
+          <div>
+            <div class="section-title">Aktivität</div>
+            <section class="card list">
+              <button class="list-row" onClick=${openHealth}>
+                <span class="list-icon" style="background:#ff2d55">❤️</span>
+                <span class="grow">Apple Health (Test)</span>
+                <span class="chev">${Icon.chevron()}</span>
               </button>
             </section>
           </div>

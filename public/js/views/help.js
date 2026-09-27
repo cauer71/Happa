@@ -57,6 +57,12 @@ const TOPICS = [
       </ul>`,
   },
   {
+    id: "health", e: "❤️", title: "Aktivität aus Apple Health (Test)",
+    body: () => html`
+      <p>Mit der iPhone-App <b>Health Auto Export</b> kommen aktive Energie, Ruheenergie, Schritte und Workouts zu Happa. Auf „Heute“ zeigt die Karte „Verbrauch“ dann den Tag mit und ohne Sport.</p>
+      <p class="muted">Einrichten unter Profil → Aktivität → Apple Health (Test): dort den Schlüssel erzeugen und der Anleitung folgen.</p>`,
+  },
+  {
     id: "photo", e: "📸", title: "Essen fotografieren in Happa",
     body: () => html`
       <ul>

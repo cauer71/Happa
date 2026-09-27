@@ -148,6 +148,15 @@ Mittagessen eintragen“). Ändern oder löschen kann Claude nichts; das geht nu
 - **Entfernen:** `worker/mcp.js` löschen, am Ende von `worker/index.js` den Connector-Block durch `export default app;`
   ersetzen, in `wrangler.toml` die Route `happa-mcp.auer.page`, den KV-Speicher und die Kompatibilitäts-Option streichen.
 
+## Aktivität aus Apple Health (Test)
+
+Die iPhone-App **Health Auto Export** schickt per Automation „REST API“ aktive Energie, Ruheenergie,
+Schritte und Workouts an `POST https://happa-mcp.auer.page/health/import` (Header `X-Happa-Key`, Schlüssel
+in Happa unter Profil → Aktivität → Apple Health erzeugen; gespeichert wird nur der Hash in `health_keys`).
+Pro Tag landet ein kompaktes JSON in `days.act`; die Karte „Verbrauch“ auf „Heute“ zeigt den Verbrauch mit
+und ohne Sport (ohne Sport = Grundumsatz + aktive Energie − Workouts). Empfohlen: Tageswerte (Aggregate „Days“),
+Zeitraum 7 Tage, höchstens 1 MB pro Upload. Code: `worker/health.js`, `public/js/views/health.js`.
+
 ## Datenquellen und Lizenzen
 
 - **Bundeslebensmittelschlüssel (BLS) 4.0** – Max Rubner-Institut (2025), Deutsche Nährstoffdatenbank,

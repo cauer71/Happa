@@ -61,9 +61,9 @@ async function loadUser(env, email) {
 }
 async function loadDays(env, uid, from, to) {
   const { results } = await env.DB.prepare(
-    "SELECT d, log, water, weight FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d"
+    "SELECT d, log, water, weight, act FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d"
   ).bind(uid, from, to).all();
-  return results.map((r) => ({ d: r.d, log: JSON.parse(r.log || "[]"), water: r.water || 0, weight: r.weight ?? null }));
+  return results.map((r) => ({ d: r.d, log: JSON.parse(r.log || "[]"), water: r.water || 0, weight: r.weight ?? null, act: r.act ? JSON.parse(r.act) : null }));
 }
 async function loadWeights(env, uid, from) {
   const { results } = await env.DB.prepare(
@@ -82,6 +82,18 @@ function sum(log) {
   const t = { kcal: 0, eiweiss_g: 0, kh_g: 0, fett_g: 0 };
   for (const e of log) { t.kcal += e[4] || 0; t.eiweiss_g += e[5] || 0; t.kh_g += e[6] || 0; t.fett_g += e[7] || 0; }
   return { kcal: r0(t.kcal), eiweiss_g: r0(t.eiweiss_g), kh_g: r0(t.kh_g), fett_g: r0(t.fett_g) };
+}
+
+// Verbrauch aus Apple Health (days.act, siehe worker/health.js)
+function verbrauch(act) {
+  if (!act) return null;
+  const sport = (act.w || []).reduce((s, w) => s + (w[2] || 0), 0);
+  const total = (act.b || 0) + (act.a || 0);
+  return {
+    gesamt_kcal: r0(total), ohne_sport_kcal: r0(Math.max(0, total - sport)), sport_kcal: r0(sport),
+    grundumsatz_kcal: r0(act.b), aktiv_kcal: r0(act.a), schritte: act.s || 0,
+    workouts: (act.w || []).map((w) => ({ name: w[0], minuten: w[1], kcal: w[2], start: w[3] })),
+  };
 }
 
 function profileOut(p) {
@@ -321,6 +333,7 @@ async function toolSummary(env, email, args) {
     days: days.filter((x) => x.log.length || x.water || x.weight != null).map((x) => ({
       d: x.d, datum: `${weekday(x.d)} ${iso(x.d)}`, summe: sum(x.log),
       log: x.log.map((e) => e.slice(0, 8)), water: x.water, weight: x.weight,
+      ...(x.act ? { verbrauch: verbrauch(x.act) } : {}),
     })),
     weights,
   };
@@ -346,6 +359,7 @@ async function toolDay(env, email, args) {
     noch_uebrig: g ? { kcal: g.kcal - t.kcal, eiweiss_g: g.eiweiss_g - t.eiweiss_g, kh_g: g.kh_g - t.kh_g, fett_g: g.fett_g - t.fett_g } : null,
     wasser_ml: day ? day.water : 0,
     gewicht_kg: day ? day.weight : null,
+    verbrauch_apple_health: verbrauch(day?.act),
   };
 }
 
