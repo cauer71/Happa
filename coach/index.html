@@ -1,0 +1,802 @@
+<title>Happa Coach</title>
+<style>
+:root {
+  --bg: #eef1f5;
+  --text: #0b0b0f;
+  --text-2: rgba(60, 60, 67, .68);
+  --text-3: rgba(60, 60, 67, .42);
+  --sep: rgba(60, 60, 67, .14);
+  --card: #ffffff;
+  --fill: rgba(120, 120, 128, .12);
+  --fill-2: rgba(120, 120, 128, .2);
+  --shadow: 0 8px 24px rgba(22, 38, 60, .06), 0 1px 2px rgba(22, 38, 60, .05);
+  --accent: #14b87c;
+  --accent-text: #0a7f57;
+  --accent-grad: linear-gradient(135deg, #12a46d 0%, #0a8458 50%, #07706f 100%);
+  --accent-soft: rgba(20, 184, 124, .12);
+  --carbs: #c77700;
+  --protein: #e0284f;
+  --fat: #7a45f0;
+  --warn-bg: #fff4e0;
+  --warn-text: #8a4b00;
+  --danger: #d70015;
+  --bubble-me: #0a8458;
+  --bubble-me-text: #ffffff;
+  --blob-1: #b8f5d4;
+  --blob-2: #cde8f6;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --radius: 22px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000;
+    --text: #f5f5f7;
+    --text-2: rgba(235, 235, 245, .66);
+    --text-3: rgba(235, 235, 245, .38);
+    --sep: rgba(84, 84, 88, .55);
+    --card: #1c1c1e;
+    --fill: rgba(120, 120, 128, .24);
+    --fill-2: rgba(120, 120, 128, .36);
+    --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    --accent-text: #3ddc97;
+    --accent-soft: rgba(20, 184, 124, .18);
+    --carbs: #ffb340;
+    --protein: #ff6b88;
+    --fat: #b392ff;
+    --warn-bg: #3a2a10;
+    --warn-text: #ffcf7a;
+    --danger: #ff6961;
+    --blob-1: #0c4a33;
+    --blob-2: #0b3346;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --text: #f5f5f7;
+  --text-2: rgba(235, 235, 245, .66);
+  --text-3: rgba(235, 235, 245, .38);
+  --sep: rgba(84, 84, 88, .55);
+  --card: #1c1c1e;
+  --fill: rgba(120, 120, 128, .24);
+  --fill-2: rgba(120, 120, 128, .36);
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --accent-text: #3ddc97;
+  --accent-soft: rgba(20, 184, 124, .18);
+  --carbs: #ffb340;
+  --protein: #ff6b88;
+  --fat: #b392ff;
+  --warn-bg: #3a2a10;
+  --warn-text: #ffcf7a;
+  --danger: #ff6961;
+  --blob-1: #0c4a33;
+  --blob-2: #0b3346;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg);
+  background-image: radial-gradient(60% 40% at 0% 0%, var(--blob-1), transparent 70%), radial-gradient(50% 35% at 100% 10%, var(--blob-2), transparent 70%);
+  background-repeat: no-repeat;
+  color: var(--text);
+  font: 16px/1.45 var(--font);
+  padding-inline: 16px;
+  padding-block: 20px 48px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Kopf */
+.top { display: flex; align-items: center; gap: 14px; }
+.logo { width: 52px; height: 52px; border-radius: 14px; background: var(--accent-grad); display: grid; place-items: center; flex: none; box-shadow: 0 6px 16px rgba(10, 132, 88, .3); }
+.logo svg { width: 30px; height: 30px; }
+.top h1 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.top p { margin: 2px 0 0; color: var(--text-2); font-size: 15px; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: var(--warn-bg); color: var(--warn-text); vertical-align: middle; margin-left: 6px; }
+
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+.label { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); margin: 0 0 8px 4px; }
+.muted { color: var(--text-2); }
+.small { font-size: 14px; }
+
+/* Datenquelle */
+.source { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+.source b { font-size: 17px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-text); }
+.chip.example { background: var(--warn-bg); color: var(--warn-text); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 0; border-radius: 99px; padding: 10px 16px; font-weight: 600; font-size: 15px; background: var(--fill); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.btn:hover { background: var(--fill-2); }
+.btn.primary { background: var(--accent-grad); color: #fff; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.block { width: 100%; justify-content: center; }
+.paste { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+textarea, input[type=text], select { width: 100%; border: 1px solid var(--sep); background: var(--fill); border-radius: 14px; padding: 12px 14px; font-size: 16px; }
+textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.error { color: var(--danger); font-size: 14px; margin: 0; }
+
+/* Kennzahlen */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat { background: var(--card); border-radius: 18px; box-shadow: var(--shadow); padding: 14px; min-width: 0; }
+.stat .v { font: 700 24px/1.1 var(--font-round); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.stat .v small { font-size: 13px; font-weight: 600; color: var(--text-2); margin-left: 2px; }
+.stat .k { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+.stat .d { font-size: 12px; font-weight: 600; margin-top: 6px; }
+.up { color: var(--danger); }
+.down { color: var(--accent-text); }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* Tabs */
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--fill); border-radius: 99px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; border-radius: 99px; padding: 9px 4px; font-weight: 600; font-size: 15px; cursor: pointer; color: var(--text-2); }
+.seg button[aria-selected="true"] { background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, .1); }
+.panel { display: flex; flex-direction: column; gap: 14px; }
+.intro { margin: 0; color: var(--text-2); font-size: 15px; }
+
+/* Antworttext */
+.answer { font-size: 16px; line-height: 1.55; overflow-wrap: anywhere; }
+.answer h3 { font-size: 18px; margin: 18px 0 6px; }
+.answer h3:first-child { margin-top: 0; }
+.answer h4 { font-size: 16px; margin: 14px 0 4px; }
+.answer p { margin: 0 0 10px; }
+.answer ul, .answer ol { margin: 0 0 10px; padding-left: 22px; }
+.answer li { margin: 3px 0; }
+.thinking { display: flex; align-items: center; gap: 10px; color: var(--text-2); }
+.dot3 { display: inline-flex; gap: 4px; }
+.dot3 i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite ease-in-out; }
+.dot3 i:nth-child(2) { animation-delay: .15s; }
+.dot3 i:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
+
+/* Chat */
+.chat { display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 88%; padding: 10px 14px; border-radius: 20px; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+.msg.me { align-self: flex-end; background: var(--bubble-me); color: var(--bubble-me-text); border-bottom-right-radius: 6px; white-space: pre-wrap; }
+.msg.ai { align-self: flex-start; background: var(--fill); border-bottom-left-radius: 6px; }
+.msg.ai .answer p:last-child, .msg.ai .answer ul:last-child { margin-bottom: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips button { border: 1px solid var(--sep); background: var(--card); border-radius: 99px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+.chips button:hover { background: var(--fill); }
+.composer { display: flex; gap: 8px; align-items: flex-end; }
+.composer textarea { min-height: 46px; height: 46px; font-family: var(--font); font-size: 16px; border-radius: 23px; padding: 11px 16px; }
+
+/* Rezepte */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-2); margin: 0 0 4px 4px; display: block; }
+.budget { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.budget b { font-family: var(--font-round); }
+.recipes { display: grid; gap: 12px; }
+.recipe h3 { font-size: 19px; }
+.recipe .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; color: var(--text-2); margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+.recipe .meta b { color: var(--text); }
+.recipe .why { font-size: 14px; background: var(--accent-soft); color: var(--accent-text); border-radius: 12px; padding: 8px 12px; margin: 0 0 10px; }
+.recipe details { margin-top: 6px; }
+.recipe summary { cursor: pointer; font-weight: 600; color: var(--accent-text); padding: 4px 0; }
+.recipe ul, .recipe ol { margin: 6px 0 0; padding-left: 22px; }
+.recipe li { margin: 3px 0; }
+
+/* Foto */
+.drop { border: 2px dashed var(--fill-2); border-radius: 18px; padding: 22px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop .big { font-size: 34px; line-height: 1; }
+.preview { width: 100%; max-height: 320px; object-fit: cover; border-radius: 16px; display: block; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--sep); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); font-weight: 600; }
+tfoot td { font-weight: 700; border-bottom: 0; }
+.conf { font-size: 12px; color: var(--text-3); }
+.note { font-size: 14px; background: var(--warn-bg); color: var(--warn-text); border-radius: 14px; padding: 10px 14px; margin: 0; }
+
+.foot { font-size: 13px; color: var(--text-3); text-align: center; margin: 4px 0 0; }
+
+@media (prefers-reduced-motion: reduce) { .dot3 i { animation: none; opacity: .8; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M7 3v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M9 11v10"/><path d="M17 3c-1.7 1.2-2.5 3.3-2.5 6 0 1.4.9 2.5 2.5 2.5V21"/></svg>
+    </div>
+    <div>
+      <h1>Happa Coach <span class="pill">Test</span></h1>
+      <p>Claude wertet deine Happa-Daten aus.</p>
+    </div>
+  </header>
+
+  <section class="card" aria-labelledby="src-title">
+    <div class="source">
+      <div>
+        <div id="src-title"><b id="src-name">Beispieldaten</b> <span id="src-chip" class="chip example">Beispiel</span></div>
+        <div id="src-meta" class="muted small">So sieht der Coach mit Daten aus.</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btn-paste" type="button">Daten einfügen</button>
+        <button class="btn" id="btn-file" type="button">Export-Datei</button>
+        <button class="btn" id="btn-reset" type="button" hidden>Beispiel zeigen</button>
+      </div>
+    </div>
+    <input type="file" id="file-json" accept="application/json,.json" hidden>
+    <div class="paste" id="paste-box" hidden>
+      <p class="muted small" style="margin:0">In Happa: <b>Profil → Happa Coach (Test) → Daten kopieren</b>. Dann hier einfügen.</p>
+      <textarea id="paste-text" placeholder="Hier einfügen …" aria-label="Kopierte Happa-Daten"></textarea>
+      <p class="error" id="paste-error" hidden></p>
+      <div class="actions">
+        <button class="btn primary" id="btn-load" type="button">Übernehmen</button>
+        <button class="btn" id="btn-cancel" type="button">Abbrechen</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats" id="stats" aria-label="Kennzahlen"></section>
+
+  <div class="seg" role="tablist" aria-label="Bereiche">
+    <button role="tab" id="tab-review" aria-controls="p-review" aria-selected="true">Rückblick</button>
+    <button role="tab" id="tab-chat" aria-controls="p-chat" aria-selected="false">Chat</button>
+    <button role="tab" id="tab-recipes" aria-controls="p-recipes" aria-selected="false">Rezepte</button>
+    <button role="tab" id="tab-photo" aria-controls="p-photo" aria-selected="false">Foto</button>
+  </div>
+
+  <section class="card panel" id="p-review" role="tabpanel" aria-labelledby="tab-review">
+    <p class="intro">Was lief gut, woher kommen die Kalorien, welche Muster zeigen sich? Claude schaut auf die letzten 7 Tage und vergleicht mit den Wochen davor.</p>
+    <div id="review-out" class="answer" aria-live="polite"></div>
+    <div class="actions">
+      <button class="btn primary" id="btn-review" type="button">Rückblick erstellen</button>
+      <button class="btn" id="btn-review-stop" type="button" hidden>Stopp</button>
+    </div>
+  </section>
+
+  <section class="card panel" id="p-chat" role="tabpanel" aria-labelledby="tab-chat" hidden>
+    <p class="intro">Frag Claude zu deinen eigenen Daten.</p>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <div class="chips" id="chat-chips">
+      <button type="button">Warum nehme ich gerade nicht ab?</button>
+      <button type="button">Was kann ich heute Abend noch essen?</button>
+      <button type="button">Wo kann ich am leichtesten Kalorien sparen?</button>
+      <button type="button">Esse ich genug Eiweiß?</button>
+    </div>
+    <form class="composer" id="chat-form">
+      <textarea id="chat-input" rows="1" placeholder="Nachricht" aria-label="Nachricht an den Coach"></textarea>
+      <button class="btn primary" id="btn-send" type="submit">Senden</button>
+    </form>
+  </section>
+
+  <section class="card panel" id="p-recipes" role="tabpanel" aria-labelledby="tab-recipes" hidden>
+    <p class="intro">Rezepte, die in dein Restbudget für heute passen.</p>
+    <div class="budget" id="budget"></div>
+    <div class="form-row">
+      <div><label class="field-label" for="r-meal">Mahlzeit</label>
+        <select id="r-meal"><option value="Frühstück">Frühstück</option><option value="Mittagessen">Mittagessen</option><option value="Abendessen" selected>Abendessen</option><option value="Snack">Snack</option></select></div>
+      <div><label class="field-label" for="r-time">Zeit</label>
+        <select id="r-time"><option value="15">bis 15 Minuten</option><option value="30" selected>bis 30 Minuten</option><option value="60">bis 60 Minuten</option></select></div>
+    </div>
+    <div><label class="field-label" for="r-wish">Wünsche (optional)</label>
+      <input type="text" id="r-wish" placeholder="z. B. vegetarisch, mit Hähnchen, was im Kühlschrank ist …"></div>
+    <div class="actions"><button class="btn primary" id="btn-recipes" type="button">3 Rezepte vorschlagen</button></div>
+    <div id="recipes-out" class="recipes" aria-live="polite"></div>
+  </section>
+
+  <section class="card panel" id="p-photo" role="tabpanel" aria-labelledby="tab-photo" hidden>
+    <p class="intro">Zweite Meinung für schwierige Gerichte. Das Foto geht nur an Claude und wird nicht gespeichert. Eintragen musst du das Ergebnis weiterhin in Happa.</p>
+    <p class="note" id="photo-unavailable" hidden>In dieser Ansicht kann Claude keine Bilder empfangen. Probier es in der Claude-App.</p>
+    <div id="photo-ui">
+      <label class="drop" id="drop" for="photo-file">
+        <span class="big" aria-hidden="true">📷</span>
+        <b>Foto wählen</b>
+        <span class="muted small">Aus der Galerie, oder direkt mit der Kamera, wenn dein Gerät das anbietet</span>
+      </label>
+      <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" hidden>
+    </div>
+    <img id="photo-preview" class="preview" alt="Ausgewähltes Foto" hidden>
+    <div id="photo-form" hidden>
+      <label class="field-label" for="photo-hint">Hinweis (optional)</label>
+      <input type="text" id="photo-hint" placeholder="z. B. mit Sahnesoße, halbe Portion …">
+    </div>
+    <div class="actions" id="photo-actions" hidden>
+      <button class="btn primary" id="btn-photo" type="button">Schätzen lassen</button>
+      <button class="btn" id="btn-photo-new" type="button">Anderes Foto</button>
+    </div>
+    <div id="photo-out" aria-live="polite"></div>
+  </section>
+
+  <p class="foot">Test-Version · nutzt dein Claude-Kontingent · ersetzt keine ärztliche Beratung</p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const MEALS = ["Frühstück", "Mittagessen", "Abendessen", "Snack"];
+  const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+  const nf1 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const n0 = (v) => nf0.format(Math.round(v || 0));
+  const n1 = (v) => nf1.format(v || 0);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* egal */ } },
+    del(k) { try { localStorage.removeItem(k); } catch { /* egal */ } },
+  };
+
+  // ── Datum JJJJMMTT ──
+  const toDate = (d) => new Date(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100, 12);
+  const toInt = (x) => x.getFullYear() * 10000 + (x.getMonth() + 1) * 100 + x.getDate();
+  const addDays = (d, n) => { const x = toDate(d); x.setDate(x.getDate() + n); return toInt(x); };
+  const wd = (d) => toDate(d).getDay();
+  const isWeekend = (d) => { const w = wd(d); return w === 0 || w === 6 || w === 5; }; // Fr–So
+  const fmtDay = (d) => `${WD[wd(d)]} ${d % 100}.${Math.floor(d / 100) % 100}.`;
+  const todayInt = () => toInt(new Date());
+
+  // ── Beispieldaten (deutlich gekennzeichnet) ──
+  function exampleData() {
+    const foods = [
+      [0, "Haferflocken mit Milch", 250, 330, 13, 48, 8], [0, "Vollkornbrot mit Käse", 110, 290, 15, 26, 13], [0, "Joghurt mit Beeren", 250, 190, 11, 24, 5],
+      [1, "Spaghetti Bolognese", 420, 620, 28, 78, 20], [1, "Salat mit Hähnchen", 350, 410, 36, 14, 22], [1, "Linsensuppe", 400, 360, 20, 46, 8],
+      [2, "Pizza Margherita", 330, 810, 30, 96, 30], [2, "Lachs mit Kartoffeln", 400, 560, 34, 42, 24], [2, "Gemüsepfanne mit Reis", 420, 480, 12, 76, 13],
+      [3, "Apfel", 180, 95, 0.5, 22, 0.3], [3, "Schokolade", 40, 215, 3, 22, 13], [3, "Nüsse", 30, 190, 6, 4, 17], [3, "Bier 0,5 l", 500, 215, 2.5, 15, 0],
+    ];
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const pick = (meal) => { const list = foods.filter((f) => f[0] === meal); return list[Math.floor(rnd() * list.length)]; };
+    const end = todayInt(), days = [];
+    for (let i = 20; i >= 0; i--) {
+      const d = addDays(end, -i), we = isWeekend(d), log = [];
+      for (const meal of [0, 1, 2]) {
+        let f = pick(meal);
+        if (we && meal === 2 && rnd() < .6) f = foods[6];
+        log.push(f.slice());
+      }
+      const snacks = we ? 2 : (rnd() < .5 ? 1 : 0);
+      for (let s = 0; s < snacks; s++) log.push(pick(3).slice());
+      if (i === 0) log.splice(2);
+      days.push({ d, log: log.map(([meal, name, grams, kcal, p, c, f]) => ({ meal, name, grams, kcal, p, c, f })), water: 1250 + Math.round(rnd() * 5) * 250 });
+    }
+    const weights = [];
+    for (let i = 20; i >= 0; i -= 3) weights.push([addDays(end, -i), Math.round((78.6 - (20 - i) * 0.04 + (rnd() - .5) * .6) * 10) / 10]);
+    return {
+      example: true, name: "Beispiel", created: new Date().toISOString(),
+      profile: { sex: "f", age: 38, height: 168, startWeight: 79.4, goalWeight: 72, activity: "light", pace: 0.5 },
+      goals: { kcal: 1750, protein: 88, carbs: 219, fat: 58, water: 2250 },
+      days, weights,
+    };
+  }
+
+  // ── Happa-Daten lesen: Coach-Block oder Export-Datei ──
+  function normalize(raw) {
+    if (!raw || raw.app !== "Happa" || !Array.isArray(raw.days)) throw new Error("Das sind keine Happa-Daten. Kopiere sie in Happa unter Profil → Happa Coach.");
+    const p = raw.profile || {};
+    const year = new Date().getFullYear();
+    const days = raw.days.map((x) => ({
+      d: Number(x.d),
+      water: Number(x.water) || 0,
+      weight: x.weight ?? null,
+      log: (x.log || []).map((e) => Array.isArray(e)
+        ? { meal: e[1], name: String(e[2]), grams: e[3], kcal: e[4], p: e[5], c: e[6], f: e[7] }
+        : e),
+    })).filter((x) => x.d > 19000000).sort((a, b) => a.d - b.d);
+    let weights = Array.isArray(raw.weights) ? raw.weights : days.filter((x) => x.weight != null).map((x) => [x.d, x.weight]);
+    weights = weights.map(([d, w]) => [Number(d), Number(w)]).sort((a, b) => a[0] - b[0]);
+    return {
+      example: false,
+      name: p.name || "Du",
+      created: raw.created || raw.exported || new Date().toISOString(),
+      profile: {
+        sex: p.sex, age: p.born ? year - p.born : null, height: p.height,
+        startWeight: p.startWeight, goalWeight: p.goalWeight, activity: p.activity, pace: p.pace,
+      },
+      goals: raw.goals || (p.kcalGoal ? { kcal: p.kcalGoal } : null),
+      days, weights,
+    };
+  }
+  function parseInput(text) {
+    const t = text.trim();
+    const start = t.indexOf("{"), end = t.lastIndexOf("}");
+    if (start < 0 || end < start) throw new Error("Im eingefügten Text sind keine Happa-Daten.");
+    let raw;
+    try { raw = JSON.parse(t.slice(start, end + 1)); } catch { throw new Error("Die Daten sind unvollständig. Bitte in Happa noch einmal kopieren und ganz einfügen."); }
+    return normalize(raw);
+  }
+
+  // ── Auswertung (im Browser, damit Claude mit festen Zahlen arbeitet) ──
+  function dayTotals(day) {
+    const t = { kcal: 0, p: 0, c: 0, f: 0, meals: [0, 0, 0, 0] };
+    for (const e of day.log) { t.kcal += e.kcal || 0; t.p += e.p || 0; t.c += e.c || 0; t.f += e.f || 0; t.meals[e.meal] = (t.meals[e.meal] || 0) + (e.kcal || 0); }
+    return t;
+  }
+  const avg = (list) => list.length ? list.reduce((a, b) => a + b, 0) / list.length : 0;
+
+  function analyze(data) {
+    const today = todayInt();
+    // heute zählt nicht mit (der Tag ist noch nicht vorbei)
+    const done = data.days.filter((x) => x.log.length && x.d < today);
+    const last = done.filter((x) => x.d >= addDays(today, -7));
+    const before = done.filter((x) => x.d < addDays(today, -7) && x.d >= addDays(today, -28));
+    const kc = (list) => avg(list.map((x) => dayTotals(x).kcal));
+    const goal = data.goals?.kcal || null;
+    const inGoal = goal ? last.filter((x) => { const k = dayTotals(x).kcal; return k <= goal * 1.05 && k >= goal * 0.7; }).length : null;
+    const we = last.filter((x) => isWeekend(x.d)), wk = last.filter((x) => !isWeekend(x.d));
+    const foods = new Map();
+    for (const day of last) for (const e of day.log) {
+      const k = e.name.trim();
+      const cur = foods.get(k) || { name: k, kcal: 0, n: 0 };
+      cur.kcal += e.kcal || 0; cur.n++;
+      foods.set(k, cur);
+    }
+    const top = [...foods.values()].sort((a, b) => b.kcal - a.kcal).slice(0, 6);
+    const meals = [0, 1, 2, 3].map((m) => avg(last.map((x) => dayTotals(x).meals[m] || 0)));
+    const macros = { p: avg(last.map((x) => dayTotals(x).p)), c: avg(last.map((x) => dayTotals(x).c)), f: avg(last.map((x) => dayTotals(x).f)) };
+    const w = data.weights;
+    const w28 = w.filter(([d]) => d >= addDays(today, -28));
+    const wFirst = w28[0], wLast = w[w.length - 1];
+    const todayDay = data.days.find((x) => x.d === today);
+    return {
+      today, goal, last, before, lastAvg: kc(last), beforeAvg: kc(before), inGoal,
+      weAvg: kc(we), wkAvg: kc(wk), weN: we.length, wkN: wk.length,
+      top, meals, macros, wFirst, wLast,
+      todayTotals: todayDay ? dayTotals(todayDay) : { kcal: 0, p: 0, c: 0, f: 0, meals: [0, 0, 0, 0] },
+      todayLog: todayDay ? todayDay.log : [],
+    };
+  }
+
+  // Text für Claude: Profil, Ziele, Kennzahlen, Tagebuch der letzten Wochen
+  function contextText(data, a) {
+    const p = data.profile, g = data.goals;
+    const L = [];
+    L.push(`Person: ${data.name}${p.sex ? ", " + (p.sex === "m" ? "männlich" : p.sex === "f" ? "weiblich" : "divers") : ""}${p.age ? ", " + p.age + " Jahre" : ""}${p.height ? ", " + p.height + " cm" : ""}.`);
+    if (p.startWeight || p.goalWeight) L.push(`Startgewicht ${p.startWeight ?? "?"} kg, Zielgewicht ${p.goalWeight ?? "?"} kg, Aktivität: ${p.activity ?? "?"}, geplantes Tempo ${p.pace ?? "?"} kg/Woche.`);
+    L.push(g ? `Tagesziel: ${g.kcal} kcal${g.protein ? `, Eiweiß ${g.protein} g, Kohlenhydrate ${g.carbs} g, Fett ${g.fat} g` : ""}${g.water ? `, Wasser ${g.water} ml` : ""}.` : "Tagesziel: unbekannt.");
+    L.push(`Heute ist ${fmtDay(a.today)} ${Math.floor(a.today / 10000)}.`);
+    L.push("");
+    L.push("Kennzahlen (vom Browser berechnet, abgeschlossene Tage):");
+    L.push(`- Letzte 7 Tage: ${a.last.length} Tage mit Einträgen, Ø ${n0(a.lastAvg)} kcal/Tag${a.goal ? `, ${a.inGoal} Tage im Zielbereich` : ""}.`);
+    if (a.before.length) L.push(`- Wochen davor (Tag 8–28): ${a.before.length} Tage, Ø ${n0(a.beforeAvg)} kcal/Tag.`);
+    if (a.weN && a.wkN) L.push(`- Fr–So Ø ${n0(a.weAvg)} kcal (${a.weN} Tage), Mo–Do Ø ${n0(a.wkAvg)} kcal (${a.wkN} Tage).`);
+    L.push(`- Ø pro Mahlzeit: ${MEALS.map((m, i) => `${m} ${n0(a.meals[i])}`).join(", ")} kcal.`);
+    L.push(`- Ø Nährstoffe: Eiweiß ${n0(a.macros.p)} g, Kohlenhydrate ${n0(a.macros.c)} g, Fett ${n0(a.macros.f)} g.`);
+    if (a.top.length) L.push(`- Größte Kalorienquellen (7 Tage): ${a.top.map((t) => `${t.name} ${n0(t.kcal)} kcal (${t.n}×)`).join("; ")}.`);
+    if (data.weights.length) L.push(`- Gewicht: ${data.weights.slice(-10).map(([d, w]) => `${fmtDay(d)} ${n1(w)}`).join(", ")} kg.`);
+    L.push(`- Heute bisher: ${n0(a.todayTotals.kcal)} kcal (Eiweiß ${n0(a.todayTotals.p)} g, KH ${n0(a.todayTotals.c)} g, Fett ${n0(a.todayTotals.f)} g).`);
+    L.push("");
+    L.push("Tagebuch (neueste zuerst; je Eintrag: Name Gramm kcal):");
+    const recent = data.days.filter((x) => x.log.length && x.d >= addDays(a.today, -28)).slice().reverse();
+    let budget = 38000;
+    for (const day of recent) {
+      const t = dayTotals(day);
+      const line = `${fmtDay(day.d)}: ${n0(t.kcal)} kcal · ` + [0, 1, 2, 3].map((m) => {
+        const items = day.log.filter((e) => e.meal === m);
+        return items.length ? `${MEALS[m]}: ${items.map((e) => `${e.name} ${n0(e.grams)} g ${n0(e.kcal)}`).join(", ")}` : "";
+      }).filter(Boolean).join(" | ") + (day.water ? ` | Wasser ${day.water} ml` : "");
+      budget -= line.length;
+      if (budget < 0) break;
+      L.push(line);
+    }
+    return L.join("\n");
+  }
+
+  const RULES = `Du bist der freundliche Ernährungs-Coach der Abnehm-App Happa. Antworte auf Deutsch, per du, kurz und konkret.
+Regeln: Stütze dich auf die Zahlen und das Tagebuch unten und nenne konkrete Lebensmittel und Tage. Keine Moralpredigt, keine Schuldgefühle, sachlich und ermutigend.
+Empfiehl nie weniger als 1.200 kcal (Frauen) bzw. 1.500 kcal (Männer) pro Tag und kein Abnehmtempo über 0,5–1 kg pro Woche. Bei Anzeichen einer Essstörung, Krankheit oder Schwangerschaft: freundlich auf ärztlichen Rat verweisen.
+Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 0,5–1 kg (Wasser). Formatiere mit kurzen Absätzen, „## “-Überschriften und „- “-Listen, ohne Tabellen.`;
+
+  // ── Kleiner, sicherer Markdown-Renderer (erst escapen, dann formatieren) ──
+  const esc = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const inline = (s) => esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+  function md(text) {
+    const out = []; let list = null;
+    const close = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    for (const raw of text.split("\n")) {
+      const line = raw.trimEnd();
+      let m;
+      if (!line.trim()) { close(); continue; }
+      if ((m = line.match(/^#{1,2}\s+(.*)/))) { close(); out.push(`<h3>${inline(m[1])}</h3>`); continue; }
+      if ((m = line.match(/^#{3,6}\s+(.*)/))) { close(); out.push(`<h4>${inline(m[1])}</h4>`); continue; }
+      if ((m = line.match(/^\s*[-*•]\s+(.*)/))) { if (list !== "ul") { close(); out.push("<ul>"); list = "ul"; } out.push(`<li>${inline(m[1])}</li>`); continue; }
+      if ((m = line.match(/^\s*\d+[.)]\s+(.*)/))) { if (list !== "ol") { close(); out.push("<ol>"); list = "ol"; } out.push(`<li>${inline(m[1])}</li>`); continue; }
+      close(); out.push(`<p>${inline(line)}</p>`);
+    }
+    close();
+    return out.join("");
+  }
+  const thinking = (label = "Claude denkt nach") => `<div class="thinking"><span class="dot3"><i></i><i></i><i></i></span>${esc(label)} …</div>`;
+  function errorText(e) {
+    switch (e && e.code) {
+      case "not_granted": return "Du hast dem Coach den Zugriff auf Claude nicht erlaubt. Lade die Seite neu, um noch einmal gefragt zu werden.";
+      case "sampling_disabled": case "capability_disabled": case "not_declared": case "capability_removed": return "Claude ist in dieser Ansicht nicht verfügbar. Öffne den Coach in der Claude-App oder auf claude.ai.";
+      case "rate_limited": return "Gerade zu viele Anfragen oder dein Claude-Kontingent ist aufgebraucht. Versuch es später noch einmal.";
+      case "session_expired": return "Bitte melde dich bei Claude neu an.";
+      case "image_rejected": return "Dieses Bild kann Claude nicht lesen. Bitte ein JPEG-, PNG- oder WebP-Foto wählen.";
+      case "images_unavailable": return "In dieser Ansicht kann Claude keine Bilder empfangen.";
+      case "prompt_too_large": return "Zu viele Daten auf einmal. Kopiere in Happa neu, dann werden nur die letzten Wochen geschickt.";
+      case "refused": return "Dazu möchte Claude nichts sagen. Formuliere die Frage anders.";
+      case "invalid_json": return "Die Antwort kam in unerwarteter Form. Bitte noch einmal versuchen.";
+      case "cancelled": return "";
+      default: return "Claude ist gerade nicht erreichbar. Bitte noch einmal versuchen.";
+    }
+  }
+
+  // ── Zustand ──
+  let data = null, A = null;
+  const samplePromise = window.claude && typeof window.claude.use === "function" ? window.claude.use("sample") : Promise.resolve(null);
+  let sample = null;
+
+  function loadSaved() {
+    const raw = store.get("happa-coach-data");
+    if (raw) { try { return normalize(JSON.parse(raw)); } catch { store.del("happa-coach-data"); } }
+    return exampleData();
+  }
+  function setData(d, rawToSave) {
+    data = d; A = analyze(d);
+    if (rawToSave) store.set("happa-coach-data", rawToSave); else if (d.example) store.del("happa-coach-data");
+    chat.length = 0; renderChat();
+    $("review-out").innerHTML = ""; $("recipes-out").innerHTML = "";
+    renderSource(); renderStats(); renderBudget();
+  }
+
+  function renderSource() {
+    $("src-name").textContent = data.example ? "Beispieldaten" : `Daten von ${data.name}`;
+    const chip = $("src-chip");
+    chip.textContent = data.example ? "Beispiel" : "Eigene Daten";
+    chip.className = "chip" + (data.example ? " example" : "");
+    const withLog = data.days.filter((x) => x.log.length);
+    const created = new Date(data.created);
+    $("src-meta").textContent = data.example
+      ? "So sieht der Coach mit Daten aus. Füge deine eigenen Daten ein."
+      : `${withLog.length} Tage mit Einträgen · kopiert am ${created.toLocaleDateString("de-DE")} um ${created.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
+    $("btn-reset").hidden = data.example;
+  }
+
+  function stat(v, unit, k, delta) {
+    return `<div class="stat"><div class="v">${v}<small>${unit}</small></div><div class="k">${esc(k)}</div>${delta || ""}</div>`;
+  }
+  function renderStats() {
+    const a = A, cells = [];
+    const diff = a.before.length && a.last.length ? a.lastAvg - a.beforeAvg : null;
+    cells.push(stat(a.last.length ? n0(a.lastAvg) : "–", "kcal", "Ø pro Tag, 7 Tage",
+      diff != null ? `<div class="d ${diff > 0 ? "up" : "down"}">${diff > 0 ? "+" : "−"}${n0(Math.abs(diff))} zu davor</div>` : ""));
+    cells.push(stat(a.goal ? `${a.inGoal}/${a.last.length}` : "–", "", a.goal ? `Tage im Ziel (${n0(a.goal)} kcal)` : "Tage im Ziel", ""));
+    const gap = a.weN && a.wkN ? a.weAvg - a.wkAvg : null;
+    cells.push(stat(gap != null ? `${gap >= 0 ? "+" : "−"}${n0(Math.abs(gap))}` : "–", "kcal", "Fr–So gegenüber Mo–Do", ""));
+    const wDelta = a.wFirst && a.wLast && a.wFirst[0] !== a.wLast[0] ? a.wLast[1] - a.wFirst[1] : null;
+    cells.push(stat(a.wLast ? n1(a.wLast[1]) : "–", "kg", "Gewicht zuletzt",
+      wDelta != null ? `<div class="d ${wDelta > 0 ? "up" : "down"}">${wDelta > 0 ? "+" : "−"}${n1(Math.abs(wDelta))} kg in 4 Wochen</div>` : ""));
+    $("stats").innerHTML = cells.join("");
+  }
+
+  function remaining() {
+    const g = data.goals, t = A.todayTotals;
+    if (!g || !g.kcal) return null;
+    return { kcal: g.kcal - t.kcal, p: (g.protein || 0) - t.p, c: (g.carbs || 0) - t.c, f: (g.fat || 0) - t.f, hasMacros: !!g.protein };
+  }
+  function renderBudget() {
+    const r = remaining();
+    $("budget").innerHTML = r
+      ? `<span>Heute noch: <b>${n0(Math.max(0, r.kcal))} kcal</b></span>` + (r.hasMacros ? `<span style="color:var(--protein)">Eiweiß <b>${n0(Math.max(0, r.p))} g</b></span><span style="color:var(--carbs)">KH <b>${n0(Math.max(0, r.c))} g</b></span><span style="color:var(--fat)">Fett <b>${n0(Math.max(0, r.f))} g</b></span>` : "")
+      : `<span class="muted">Kein Tagesziel in den Daten – Claude schätzt ein passendes Budget.</span>`;
+  }
+
+  // ── Tabs ──
+  const TABS = ["review", "chat", "recipes", "photo"];
+  function showTab(name) {
+    for (const t of TABS) {
+      $("tab-" + t).setAttribute("aria-selected", String(t === name));
+      $("tab-" + t).tabIndex = t === name ? 0 : -1;
+      $("p-" + t).hidden = t !== name;
+    }
+    store.set("happa-coach-tab", name);
+  }
+  TABS.forEach((t, i) => {
+    const b = $("tab-" + t);
+    b.addEventListener("click", () => showTab(t));
+    b.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const n = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
+      showTab(n); $("tab-" + n).focus();
+    });
+  });
+
+  // ── Daten einfügen ──
+  $("btn-paste").addEventListener("click", () => { $("paste-box").hidden = false; $("paste-error").hidden = true; $("paste-text").focus(); });
+  $("btn-cancel").addEventListener("click", () => { $("paste-box").hidden = true; $("paste-text").value = ""; });
+  $("btn-load").addEventListener("click", () => {
+    const text = $("paste-text").value;
+    try {
+      const d = parseInput(text);
+      setData(d, text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      $("paste-box").hidden = true; $("paste-text").value = "";
+    } catch (e) { $("paste-error").textContent = e.message; $("paste-error").hidden = false; }
+  });
+  $("btn-file").addEventListener("click", () => $("file-json").click());
+  $("file-json").addEventListener("change", async (e) => {
+    const file = e.target.files[0]; e.target.value = "";
+    if (!file) return;
+    try { const text = await file.text(); setData(parseInput(text), text); }
+    catch (err) { $("paste-box").hidden = false; $("paste-error").textContent = err.message; $("paste-error").hidden = false; }
+  });
+  $("btn-reset").addEventListener("click", () => setData(exampleData()));
+
+  // ── Rückblick ──
+  let reviewCtl = null;
+  $("btn-review").addEventListener("click", async () => {
+    if (!sample) return;
+    const out = $("review-out"), btn = $("btn-review"), stop = $("btn-review-stop");
+    reviewCtl = new AbortController();
+    btn.disabled = true; stop.hidden = false;
+    out.innerHTML = thinking("Claude schaut sich deine Woche an");
+    const prompt = `${RULES}
+
+Aufgabe: Schreibe einen Wochenrückblick für die letzten 7 abgeschlossenen Tage, im Vergleich zu den Wochen davor.
+Gliederung mit genau diesen Überschriften:
+## Das lief gut
+## Woher die Kalorien kommen
+## Muster
+## Dein Fokus für nächste Woche
+Bei „Muster“ konkrete Zahlen wie „am Wochenende +600 kcal“ oder „abends die Hälfte der Kalorien“. Beim Fokus höchstens 2 kleine, machbare Schritte. Insgesamt höchstens 250 Wörter.
+
+DATEN
+${contextText(data, A)}`;
+    try {
+      await sample(prompt, { signal: reviewCtl.signal, cache: { gcTime: 3600000 }, onText: ({ text }) => { out.innerHTML = md(text); } });
+      btn.textContent = "Neu erstellen";
+    } catch (e) {
+      const keep = e && e.text ? md(e.text) : "";
+      const msg = errorText(e);
+      out.innerHTML = keep + (msg ? `<p class="error">${esc(msg)}</p>` : "");
+    } finally { btn.disabled = false; stop.hidden = true; }
+  });
+  $("btn-review-stop").addEventListener("click", () => reviewCtl && reviewCtl.abort());
+
+  // ── Chat ──
+  const chat = [];
+  let chatBusy = false;
+  function renderChat(streaming) {
+    const box = $("chat");
+    box.innerHTML = chat.map((m) => m.role === "user"
+      ? `<div class="msg me">${esc(m.content)}</div>`
+      : `<div class="msg ai"><div class="answer">${m.error ? `<p class="error">${esc(m.error)}</p>` : md(m.content)}</div></div>`).join("")
+      + (streaming != null ? `<div class="msg ai"><div class="answer">${streaming ? md(streaming) : thinking()}</div></div>` : "");
+    $("chat-chips").hidden = chat.length > 0;
+  }
+  async function send(text) {
+    text = text.trim();
+    if (!text || chatBusy || !sample) return;
+    chatBusy = true; $("btn-send").disabled = true;
+    chat.push({ role: "user", content: text });
+    renderChat("");
+    const turns = [{ role: "user", content: `${RULES}\nAntworte im Chat knapp (höchstens 150 Wörter), außer es wird mehr verlangt.\n\nDATEN\n${contextText(data, A)}` }];
+    for (const m of chat.slice(-12)) if (!m.error) turns.push({ role: m.role, content: m.content });
+    try {
+      const { text: answer } = await sample(turns, { cache: false, onText: ({ text: t }) => renderChat(t) });
+      chat.push({ role: "assistant", content: answer });
+    } catch (e) {
+      if (e && e.text) chat.push({ role: "assistant", content: e.text });
+      const msg = errorText(e);
+      if (msg) chat.push({ role: "assistant", content: "", error: msg });
+    } finally {
+      chatBusy = false; $("btn-send").disabled = false; renderChat();
+    }
+  }
+  $("chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("chat-input").value; $("chat-input").value = ""; send(v); });
+  $("chat-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chat-form").requestSubmit(); } });
+  $("chat-chips").addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") send(e.target.textContent); });
+
+  // ── Rezepte ──
+  $("btn-recipes").addEventListener("click", async () => {
+    if (!sample) return;
+    const out = $("recipes-out"), btn = $("btn-recipes");
+    btn.disabled = true;
+    out.innerHTML = thinking("Claude sucht passende Rezepte");
+    const r = remaining();
+    const meal = $("r-meal").value, time = $("r-time").value, wish = $("r-wish").value.trim().slice(0, 300);
+    const budgetText = r
+      ? `Restbudget heute: ${n0(Math.max(0, r.kcal))} kcal${r.hasMacros ? `, Eiweiß ${n0(Math.max(0, r.p))} g, Kohlenhydrate ${n0(Math.max(0, r.c))} g, Fett ${n0(Math.max(0, r.f))} g` : ""}.`
+      : "Tagesziel unbekannt: plane eine übliche, maßvolle Portion.";
+    const prompt = `${RULES}
+
+Aufgabe: Schlage 3 unterschiedliche Rezepte für ${meal} vor (je 1 Portion, Zubereitung höchstens ${time} Minuten), die ins Restbudget passen. Bevorzuge eiweißreiche, sättigende Gerichte und Zutaten, die diese Person laut Tagebuch gern isst.
+${budgetText}${meal === "Snack" ? " Ein Snack soll höchstens ein Viertel davon nutzen." : " Nutze höchstens das Restbudget, lass bei Abendessen etwas Luft."}
+${wish ? `Wünsche: ${wish}` : ""}
+Heute bereits gegessen: ${A.todayLog.map((e) => e.name).join(", ") || "noch nichts"}.
+
+Antworte NUR mit einem JSON-Array aus 3 Objekten:
+[{"title":"…","minutes":20,"kcal":520,"protein":35,"carbs":50,"fat":16,"why":"ein Satz, warum es passt","ingredients":["150 g Hähnchenbrust", "…"],"steps":["…","…"]}]
+
+Tagebuch der letzten Tage zur Orientierung:
+${contextText(data, A).split("Tagebuch")[1] || ""}`.slice(0, 60000);
+    try {
+      const list = await sample.json(prompt, { cache: false });
+      if (!Array.isArray(list) || !list.length) throw { code: "invalid_json" };
+      out.innerHTML = list.slice(0, 3).map((x) => `
+        <article class="card recipe" style="box-shadow:none;background:var(--fill)">
+          <h3>${esc(String(x.title || "Rezept"))}</h3>
+          <div class="meta"><span><b>${n0(x.kcal)}</b> kcal</span><span>Eiweiß <b>${n0(x.protein)}</b> g</span><span>KH <b>${n0(x.carbs)}</b> g</span><span>Fett <b>${n0(x.fat)}</b> g</span><span>⏱ ${n0(x.minutes)} min</span></div>
+          ${x.why ? `<p class="why">${esc(String(x.why))}</p>` : ""}
+          <details><summary>Zutaten</summary><ul>${(x.ingredients || []).map((i) => `<li>${esc(String(i))}</li>`).join("")}</ul></details>
+          <details><summary>Zubereitung</summary><ol>${(x.steps || []).map((s) => `<li>${esc(String(s))}</li>`).join("")}</ol></details>
+        </article>`).join("");
+    } catch (e) {
+      out.innerHTML = `<p class="error">${esc(errorText(e) || "Abgebrochen.")}</p>`;
+    } finally { btn.disabled = false; }
+  });
+
+  // ── Foto ──
+  let photo = null, photoURL = null;
+  function setPhoto(file) {
+    if (!file) return;
+    photo = file;
+    if (photoURL) URL.revokeObjectURL(photoURL);
+    photoURL = URL.createObjectURL(file);
+    $("photo-preview").src = photoURL; $("photo-preview").hidden = false;
+    $("photo-ui").hidden = true; $("photo-form").hidden = false; $("photo-actions").hidden = false;
+    $("photo-out").innerHTML = "";
+  }
+  $("photo-file").addEventListener("change", (e) => { setPhoto(e.target.files[0]); e.target.value = ""; });
+  const drop = $("drop");
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); setPhoto(e.dataTransfer.files[0]); });
+  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("photo-file").click(); } });
+  drop.tabIndex = 0;
+  $("btn-photo-new").addEventListener("click", () => {
+    photo = null; $("photo-preview").hidden = true; $("photo-ui").hidden = false;
+    $("photo-form").hidden = true; $("photo-actions").hidden = true; $("photo-out").innerHTML = ""; $("photo-hint").value = "";
+  });
+  $("btn-photo").addEventListener("click", async () => {
+    if (!sample || !photo) return;
+    const out = $("photo-out"), btn = $("btn-photo");
+    btn.disabled = true;
+    out.innerHTML = thinking("Claude schaut sich das Foto an");
+    const hint = $("photo-hint").value.trim().slice(0, 300);
+    const prompt = `Du bist Ernährungsexperte. Auf dem Foto ist eine Mahlzeit. Bestimme alle sichtbaren Bestandteile, schätze die Menge in Gramm anhand von Teller, Besteck und typischen Portionsgrößen und berechne die Nährwerte (deutsche Nährwerttabellen als Maßstab). Denke an versteckte Kalorien wie Öl, Butter, Soßen und Dressing.
+${hint ? `Hinweis der Person: ${hint}` : ""}
+Antworte NUR mit JSON:
+{"dish":"Name des Gerichts","items":[{"name":"Spaghetti gekocht","grams":250,"kcal":390,"protein":13,"carbs":77,"fat":2,"confidence":"hoch|mittel|niedrig"}],"notes":"ein Satz: was unsicher ist und worauf man achten sollte"}
+Wenn kein Essen zu sehen ist: {"dish":"","items":[],"notes":"Kein Essen erkannt."}`;
+    try {
+      const r = await sample.json(prompt, { images: photo, cache: false });
+      const items = Array.isArray(r && r.items) ? r.items : [];
+      if (!items.length) { out.innerHTML = `<p class="note">${esc(String((r && r.notes) || "Auf dem Foto wurde kein Essen erkannt."))}</p>`; return; }
+      const sum = items.reduce((t, x) => ({ g: t.g + (+x.grams || 0), k: t.k + (+x.kcal || 0), p: t.p + (+x.protein || 0), c: t.c + (+x.carbs || 0), f: t.f + (+x.fat || 0) }), { g: 0, k: 0, p: 0, c: 0, f: 0 });
+      out.innerHTML = `
+        <h3 style="font-size:19px;margin:4px 0 10px">${esc(String(r.dish || "Mahlzeit"))}</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Bestandteil</th><th>g</th><th>kcal</th><th>E</th><th>KH</th><th>F</th></tr></thead>
+          <tbody>${items.map((x) => `<tr><td>${esc(String(x.name))}${x.confidence ? ` <span class="conf">${esc(String(x.confidence))}</span>` : ""}</td><td>${n0(x.grams)}</td><td>${n0(x.kcal)}</td><td>${n0(x.protein)}</td><td>${n0(x.carbs)}</td><td>${n0(x.fat)}</td></tr>`).join("")}</tbody>
+          <tfoot><tr><td>Summe</td><td>${n0(sum.g)}</td><td>${n0(sum.k)}</td><td>${n0(sum.p)}</td><td>${n0(sum.c)}</td><td>${n0(sum.f)}</td></tr></tfoot>
+        </table></div>
+        ${r.notes ? `<p class="muted small" style="margin:10px 0 0">${esc(String(r.notes))}</p>` : ""}
+        <p class="muted small" style="margin:8px 0 0">Vergleiche mit der Happa-Erkennung und passe dort die Mengen an.</p>`;
+    } catch (e) {
+      out.innerHTML = `<p class="error">${esc(errorText(e) || "Abgebrochen.")}</p>`;
+    } finally { btn.disabled = false; }
+  });
+
+  // ── Start ──
+  setData(loadSaved());
+  const savedTab = store.get("happa-coach-tab");
+  showTab(TABS.includes(savedTab) ? savedTab : "review");
+
+  const aiButtons = ["btn-review", "btn-send", "btn-recipes", "btn-photo"];
+  aiButtons.forEach((id) => { $(id).disabled = true; });
+  samplePromise.then(async (s) => {
+    sample = s;
+    if (!s) {
+      const msg = "Claude ist in dieser Ansicht nicht verfügbar. Öffne den Coach in der Claude-App oder auf claude.ai.";
+      $("review-out").innerHTML = `<p class="note">${esc(msg)}</p>`;
+      return;
+    }
+    aiButtons.forEach((id) => { $(id).disabled = false; });
+    const caps = await s.limits().catch(() => null);
+    if (!caps || !caps.images) { $("photo-unavailable").hidden = false; $("photo-ui").hidden = true; }
+    else if (caps.images.mediaTypes && caps.images.mediaTypes.length) $("photo-file").accept = caps.images.mediaTypes.join(",");
+  });
+})();
+</script>

@@ -116,6 +116,16 @@ Das Repository-Secret `CLOUDFLARE_API_TOKEN` enthält den Cloudflare-Token „Ha
 
 Safari → https://happa.auer.page → anmelden → Teilen → **Zum Home-Bildschirm**.
 
+## Happa Coach (Test)
+
+Getrennt von der App, als Claude-Artifact: https://claude.ai/artifact/WY5UBBEojUFsZmzDwxHJJr
+(Quelle: `coach/index.html`). Wochenrückblick, Chat über die eigenen Daten, Rezepte fürs Restbudget und
+Foto-Schätzung als zweite Meinung – über das eigene Claude-Konto, ohne Cloudflare-Kosten.
+In Happa: Profil → „Happa Coach (Test)“ → *Daten kopieren* (letzte 4 Wochen als JSON), im Coach einfügen.
+
+Entfernen: `public/js/coach.js` löschen, in `public/js/views/profile.js` die Import-Zeile und `<${CoachCard}/>` streichen.
+Die Foto-Erkennung in Happa (Cloudflare-KI) bleibt davon unberührt.
+
 ## Datenquellen und Lizenzen
 
 - **Bundeslebensmittelschlüssel (BLS) 4.0** – Max Rubner-Institut (2025), Deutsche Nährstoffdatenbank,
