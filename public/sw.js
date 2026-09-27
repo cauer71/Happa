@@ -2,12 +2,12 @@
 // - App-Dateien (Seite, JS, CSS): zuerst übers Netz (neue Version sofort), offline aus dem Cache
 // - Lebensmitteldaten und Symbole: aus dem Cache, im Hintergrund aktualisieren
 // - /api/ und /cdn-cgi/ nie cachen (Anmeldung!)
-const CACHE = "happa-v16";
+const CACHE = "happa-v17";
 const SHELL = [
   "/", "/css/app.css", "/js/app.js", "/js/util.js", "/js/icons.js", "/js/api.js", "/js/store.js", "/js/ui.js",
   "/js/nutrition.js", "/js/foods.js", "/js/thumbs.js", "/js/claude.js",
   "/js/views/today.js", "/js/views/add.js", "/js/views/entry.js", "/js/views/weight.js", "/js/views/camera.js",
-  "/js/views/progress.js", "/js/views/profile.js", "/js/views/onboarding.js", "/js/views/help.js", "/js/views/favorites.js", "/js/views/health.js", "/js/views/training.js",
+  "/js/views/progress.js", "/js/views/profile.js", "/js/views/onboarding.js", "/js/views/help.js", "/js/views/favorites.js", "/js/views/health.js", "/js/views/training.js", "/js/views/balance.js",
   "/vendor/preact.mjs", "/vendor/preact-hooks.mjs", "/vendor/htm.mjs", "/icons/icon.svg",
 ];
 

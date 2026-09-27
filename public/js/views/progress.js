@@ -1,4 +1,4 @@
-// Tab „Fortschritt“: Gewichtskurve, Kalorien der Woche, Prognose, Serie, Abzeichen.
+// Tab „Fortschritt“: Gewichtskurve, gegessen vs. verbraucht, Kalorien der Woche, Prognose, Serie, Abzeichen.
 import { useState, useEffect } from "preact/hooks";
 import { html, cx, haptic, today, addDays, n0, n1, shortDate, weekdayShort, fromInt, monthYear, diffDays } from "../util.js";
 import { Icon } from "../icons.js";
@@ -6,6 +6,7 @@ import { useStore, loadRange, loadWeights, currentGoals, currentWeight, celebrat
 import { Seg, NavBar, useScrolled, Empty } from "../ui.js";
 import { totals, BADGES, plan } from "../nutrition.js";
 import { openWeight } from "./weight.js";
+import { BalanceCard } from "./balance.js";
 
 export function ProgressView() {
   const s = useStore();
@@ -36,6 +37,7 @@ export function ProgressView() {
       <div class="grid-2">
         <div class="stack fade-list">
           <${WeightCard} weights=${weights} range=${range} setRange=${setRange}/>
+          <${BalanceCard}/>
           <${ForecastCard} logged=${logged} avg=${avg}/>
           <${StreakCard}/>
         </div>

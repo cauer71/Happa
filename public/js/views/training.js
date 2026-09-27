@@ -21,9 +21,9 @@ export const SPORTS = [
 const sportOf = (id) => SPORTS.find((s) => s.id === id) || SPORTS[SPORTS.length - 1];
 const sportForWorkout = (name) => SPORTS.find((s) => s.re && s.re.test(name)) || SPORTS[SPORTS.length - 1];
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const dm = (d) => `${d % 100}.${Math.floor(d / 100) % 100}.`;
+export const dm = (d) => `${d % 100}.${Math.floor(d / 100) % 100}.`;
 
-function isoWeek(d) {
+export function isoWeek(d) {
   const x = fromInt(d);
   const t = new Date(Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()));
   t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));

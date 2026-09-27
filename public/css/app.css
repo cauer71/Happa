@@ -38,6 +38,7 @@
   --fat: #8e5cff;
   --water: #0a9cff;
   --weight: #5e5ce6;
+  --everyday: #32ade6;
   --streak: #ff7a1a;
   --danger: #ff3b30;
   --gold: #f5b700;
@@ -885,7 +886,7 @@ a { color: var(--accent-text); }
 .energy-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--fill); }
 .energy-bar i { display: block; height: 100%; transition: width .6s var(--spring); }
 .energy-bar .b, .energy-legend .b { background: #8e8e93; }
-.energy-bar .a, .energy-legend .a { background: var(--accent); }
+.energy-bar .a, .energy-legend .a { background: var(--everyday); }
 .energy-bar .s, .energy-legend .s { background: var(--streak); }
 .energy-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-2); }
 .energy-legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -980,3 +981,17 @@ a { color: var(--accent-text); }
   :root { --glass: rgba(250, 250, 252, .96); --glass-strong: #f8f8fa; --card: #ffffff; }
   :root[data-theme="dark"] { --glass: rgba(28, 28, 32, .96); --glass-strong: #1c1c1e; --card: #1c1c1e; }
 }
+
+/* Gegessen vs. verbraucht (Fortschritt) */
+.week-nav.compact { margin: 0 0 10px; }
+.bal-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; margin-bottom: 8px; }
+.bal-kpis b { display: block; font: 700 22px/1.1 var(--font-round); }
+.bal-kpis b.under { color: var(--accent-text); }
+.bal-kpis b.over { color: var(--over-b); }
+.bal-kpis span { font-size: 12px; color: var(--text-2); }
+.bal-chart .bal-good { fill: var(--accent-text); }
+.bal-chart .bal-bad { fill: var(--over-b); }
+.bal-legend { margin-top: 8px; font-size: 12px; }
+.bal-legend .eat { background: linear-gradient(180deg, var(--kcal-a), var(--kcal-b)); }
+.bal-legend .est { background: none; border: 1.5px dashed var(--text-2); box-sizing: border-box; }
+.bal-note { font-size: 13px; margin: 8px 0 0; line-height: 1.45; }

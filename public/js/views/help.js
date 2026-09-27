@@ -69,7 +69,7 @@ const TOPICS = [
   {
     id: "health", e: "❤️", title: "Aktivität aus Apple Health (Test)",
     body: () => html`
-      <p>Mit der iPhone-App <b>Health Auto Export</b> kommen aktive Energie, Ruheenergie, Schritte und Workouts zu Happa. Auf „Heute“ zeigt die Karte „Verbrauch“ dann den Tag mit und ohne Sport.</p>
+      <p>Mit der iPhone-App <b>Health Auto Export</b> kommen aktive Energie, Ruheenergie, Schritte und Workouts zu Happa. Auf „Heute“ zeigt die Karte „Verbrauch“ dann den Tag mit und ohne Sport. Unter „Fortschritt“ vergleicht „Gegessen vs. verbraucht“ jede Woche Tag für Tag – ohne Health-Daten mit dem geschätzten Verbrauch aus deinem Profil.</p>
       <p class="muted">Einrichten unter Profil → Körperdaten → Apple Health (Test): dort den Schlüssel erzeugen und der Anleitung folgen.</p>`,
   },
   {
