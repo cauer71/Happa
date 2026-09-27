@@ -62,7 +62,9 @@ export async function handleHealthImport(request, env) {
   const url = new URL(request.url);
   const auth = request.headers.get("authorization") || "";
   const key = request.headers.get("x-happa-key") || (auth.match(/^Bearer\s+(\S+)/i) || [])[1] || url.searchParams.get("key") || "";
-  if (!/^hk_[A-Za-z0-9_-]{20,80}$/.test(key)) return json({ error: "Schlüssel fehlt oder ist ungültig" }, 401);
+  if (!/^hk_[A-Za-z0-9_-]{20,80}$/.test(key)) {
+    return json({ error: key ? "Schlüssel hat ein ungültiges Format" : "Schlüssel fehlt: Header X-Happa-Key setzen oder ?key=… an die URL hängen" }, 401);
+  }
   const row = await env.DB.prepare("SELECT uid FROM health_keys WHERE hash = ?").bind(await sha256(key)).first();
   if (!row) return json({ error: "Unbekannter Schlüssel" }, 401);
   const uid = row.uid;
