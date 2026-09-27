@@ -68,6 +68,7 @@ export function ProfileView() {
               ${row("📏", "#34aadc", "Größe", `${p.height || "–"} cm`, () => openBody())}
               ${row("🎂", "#ff9500", "Geburtsjahr", p.born || "–", () => openBody())}
               ${row(act?.e || "🚶", "#5ac8fa", "Aktivität", act?.name || "–", () => openBody())}
+              ${row("❤️", "#ff2d55", "Apple Health (Test)", "Verbrauch", () => openHealth())}
             </section>
           </div>
         </div>
@@ -94,17 +95,6 @@ export function ProfileView() {
               </button>
               <button class="list-row" onClick=${() => { haptic(); openDelete(); }}>
                 <span class="list-icon" style="background:var(--danger)">${Icon.trash()}</span><span class="grow" style="color:var(--danger)">Konto und Daten löschen</span>
-              </button>
-            </section>
-          </div>
-
-          <div>
-            <div class="section-title">Aktivität</div>
-            <section class="card list">
-              <button class="list-row" onClick=${openHealth}>
-                <span class="list-icon" style="background:#ff2d55">❤️</span>
-                <span class="grow">Apple Health (Test)</span>
-                <span class="chev">${Icon.chevron()}</span>
               </button>
             </section>
           </div>
