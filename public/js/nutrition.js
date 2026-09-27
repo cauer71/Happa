@@ -122,21 +122,24 @@ export function per100Of(entry) {
 }
 
 // ── Abzeichen ──
+// big: große Meilensteine – Feuerwerk statt Konfetti
 export const BADGES = [
   { id: "first", e: "🍽️", name: "Erster Bissen", desc: "Den ersten Eintrag gemacht." },
   { id: "photo", e: "📸", name: "Food-Fotograf", desc: "Zum ersten Mal ein Essen per Foto erkennen lassen." },
   { id: "streak3", e: "🔥", name: "Dranbleiber", desc: "3 Tage in Folge eingetragen." },
-  { id: "streak7", e: "🗓️", name: "Eine Woche!", desc: "7 Tage in Folge eingetragen." },
-  { id: "streak30", e: "🏅", name: "Gewohnheit", desc: "30 Tage in Folge eingetragen – so entsteht eine Gewohnheit." },
+  { id: "week", e: "📅", name: "Ganze Woche", desc: "Von Montag bis Sonntag jeden Tag etwas eingetragen." },
+  { id: "streak7", e: "🗓️", name: "Eine Woche!", desc: "7 Tage in Folge eingetragen.", big: true },
+  { id: "streak30", e: "🏅", name: "Gewohnheit", desc: "30 Tage in Folge eingetragen – so entsteht eine Gewohnheit.", big: true },
+  { id: "meals100", e: "💯", name: "100 Einträge", desc: "100 Mal gegessen und eingetragen.", big: true },
   { id: "water", e: "💧", name: "Gut gewässert", desc: "Das Wasserziel eines Tages erreicht." },
   { id: "balanced", e: "⚖️", name: "Punktlandung", desc: "Einen Tag mit mindestens 3 Mahlzeiten nahe am Kalorienziel (±10 %) abgeschlossen." },
   { id: "weigh", e: "📉", name: "Auf der Waage", desc: "Zum ersten Mal das Gewicht eingetragen." },
   { id: "kg1", e: "🌱", name: "Erstes Kilo", desc: "1 kg seit dem Start abgenommen." },
   { id: "kg5", e: "🌿", name: "Fünf geschafft", desc: "5 kg seit dem Start abgenommen." },
-  { id: "goal", e: "🏆", name: "Ziel erreicht", desc: "Das Zielgewicht erreicht. Großartig!" },
+  { id: "goal", e: "🏆", name: "Ziel erreicht", desc: "Das Zielgewicht erreicht. Großartig!", big: true },
 ];
 
-// ctx: { log, day, streak, water, waterGoal, kcalGoal, weight, profile, usedAi, isPast }
+// ctx: { log, day, streak, water, waterGoal, kcalGoal, weight, profile, usedAi, isPast, weekDone, entries }
 export function earnedBadges(ctx) {
   const got = [];
   const { profile } = ctx;
@@ -145,6 +148,8 @@ export function earnedBadges(ctx) {
   if (ctx.streak >= 3) got.push("streak3");
   if (ctx.streak >= 7) got.push("streak7");
   if (ctx.streak >= 30) got.push("streak30");
+  if (ctx.weekDone) got.push("week");
+  if (ctx.entries >= 100) got.push("meals100");
   if (ctx.water >= ctx.waterGoal && ctx.waterGoal > 0) got.push("water");
   const t = totals(ctx.log);
   const mealsWithFood = t.meals.filter((k) => k > 0).length;

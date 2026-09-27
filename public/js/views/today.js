@@ -1,8 +1,8 @@
 // Tab „Heute“: Wochenleiste, Kalorienring, Mahlzeiten, Wasser, Gewicht, Tipp.
-import { useState, useRef, useEffect } from "preact/hooks";
-import { html, cx, haptic, today, addDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, initials, shortDate } from "../util.js";
+import { useState, useRef, useEffect, useLayoutEffect } from "preact/hooks";
+import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, initials, shortDate, reduceMotion } from "../util.js";
 import { Icon } from "../icons.js";
-import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state, set } from "../store.js";
+import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state } from "../store.js";
 import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled } from "../ui.js";
 import { MEALS, totals, tipFor, E } from "../nutrition.js";
 import { openAdd } from "./add.js";
@@ -41,16 +41,17 @@ export function TodayView() {
   return html`
     <${NavBar} title=${dayTitle(d)} show=${scrolled}/>
     <main class="page">
-      <header class="header">
-        <div>
-          <h1 class="large-title">${dayTitle(d)}</h1>
-          <p class="subtitle">${longDate(d)}</p>
+      <header class="header top">
+        <div class="grow">
+          <div class="title-line">
+            <h1 key=${d} class="large-title swap">${dayTitle(d)}</h1>
+            <button class=${cx("today-btn btn-glass", d !== s.today && "show")} tabindex=${d !== s.today ? 0 : -1} aria-hidden=${d === s.today}
+              onClick=${() => { haptic(); goToday(); }}>Heute</button>
+          </div>
+          <p key=${d} class="subtitle swap">${longDate(d)}</p>
         </div>
-        <div class="row" style="gap:8px">
-          <button class="pill btn-glass" style="color:var(--streak)" aria-label=${`Serie: ${s.streak.current} ${s.streak.current === 1 ? "Tag" : "Tage"} in Folge`}
-            onClick=${() => { haptic(); toast(s.streak.current ? `${s.streak.current} ${s.streak.current === 1 ? "Tag" : "Tage"} in Folge – weiter so!` : "Trag heute etwas ein und starte deine Serie!", "🔥"); }}>
-            🔥<span style="color:var(--text)">${s.streak.current}</span>
-          </button>
+        <div class="row title-side">
+          <${StreakPill} n=${s.streak.current}/>
           <button class="avatar" aria-label="Profil" onClick=${() => setTab("profil")}>${initials(s.profile.name, s.email)}</button>
         </div>
       </header>
@@ -68,50 +69,141 @@ export function TodayView() {
     </main>`;
 }
 
-// ── Wochenleiste mit Wischen ──
+// ── Serie: Symbol grau bei 0, orange ab 1, springt bei Zuwachs ──
+function StreakPill({ n }) {
+  const prev = useRef(n);
+  const [bump, setBump] = useState(false);
+  useEffect(() => {
+    if (n > prev.current && !reduceMotion()) { setBump(true); const t = setTimeout(() => setBump(false), 320); prev.current = n; return () => clearTimeout(t); }
+    prev.current = n;
+  }, [n]);
+  const unit = n === 1 ? "Tag" : "Tage";
+  return html`
+    <button class=${cx("pill btn-glass streak-pill", n > 0 && "on", bump && "bump")} aria-label=${`Serie: ${n} ${unit} in Folge`}
+      onClick=${() => { haptic(); toast(n ? `${n} ${unit} in Folge – weiter so!` : "Trag heute etwas ein und starte deine Serie!", "🔥"); }}>
+      ${Icon.flame()}<span class="num">${n}</span>
+    </button>`;
+}
+
+// ── Wochenleiste: gleitet beim Blättern, folgt dem Finger, federt an der Gegenwart zurück ──
+// Drei Wochen liegen nebeneinander (vorige, aktuelle, nächste); die Spur wird verschoben
+// und nach der Animation unsichtbar wieder auf die Mitte gesetzt.
+let jump = null; // Ziel, wenn „Heute“ mehrere Wochen überspringt
+let slide = null; // von WeekStrip gesetzt: (dir, target?) => void
+
+function goToday() {
+  const t = today();
+  if (mondayOf(state.selected) === mondayOf(t) || !slide) { if (state.selected !== t) selectDay(t); return; }
+  slide(1, t);
+}
+
 function WeekStrip({ selected, logged }) {
   const t = today();
   const monday = mondayOf(selected);
-  const touch = useRef(null);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+  const track = useRef();
+  const vp = useRef();
+  const drag = useRef(null);
+  const dragged = useRef(false);
+  const busy = useRef(false);
+  const [far, setFar] = useState(null); // Montag der Nachbarwoche bei weiten Sprüngen
+  const atEnd = addDays(monday, 7) > t;
 
   useEffect(() => {
     // Woche einmal laden (nur fehlende Tage): danach ist jeder Tag sofort da
     loadRange(monday, Math.min(addDays(monday, 6), t)).catch(() => {});
   }, [monday]);
 
-  const shift = (weeks) => {
+  // Nach dem Wochenwechsel: ohne Animation zurück in die Mitte
+  useLayoutEffect(() => {
+    const el = track.current;
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.transform = "translateX(-33.3333%)";
+    void el.offsetWidth;
+    busy.current = false;
+  }, [monday]);
+
+  const go = (dir, target) => {
+    if (busy.current || !track.current) return;
+    if (dir > 0 && atEnd) return snapBack();
+    const next = target ?? Math.min(addDays(selected, dir * 7), t);
+    if (Math.abs(diffDays(mondayOf(next), monday)) > 7) { jump = next; setFar(mondayOf(next)); }
+    busy.current = true;
     haptic();
-    set({ selected: Math.min(addDays(selected, weeks * 7), t) }); // lädt die Wochenleiste selbst
+    const ms = reduceMotion() ? 1 : 560;
+    requestAnimationFrame(() => {
+      const el = track.current;
+      if (!el) return;
+      el.style.transition = `transform ${ms}ms cubic-bezier(.32,.72,0,1)`;
+      el.style.transform = `translateX(${dir > 0 ? "-66.6667" : "0"}%)`;
+      setTimeout(() => { jump = null; setFar(null); selectDay(next); }, ms + 20);
+    });
   };
-  const start = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
-  const end = (e) => {
-    if (!touch.current) return;
-    const dx = e.changedTouches[0].clientX - touch.current.x;
-    const dy = e.changedTouches[0].clientY - touch.current.y;
-    touch.current = null;
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && addDays(monday, 7) <= t) shift(1);
-      if (dx > 0) shift(-1);
-    }
+  slide = go;
+  useEffect(() => () => { if (slide === go) slide = null; });
+
+  const snapBack = () => {
+    const el = track.current;
+    if (!el) return;
+    el.style.transition = "transform 480ms cubic-bezier(.34,1.35,.64,1)";
+    el.style.transform = "translateX(-33.3333%)";
   };
 
+  const down = (e) => {
+    if (busy.current || (e.pointerType === "mouse" && e.button !== 0)) return;
+    drag.current = { x: e.clientX, y: e.clientY, dx: 0, active: false, lx: e.clientX, lt: performance.now(), v: 0 };
+  };
+  const move = (e) => {
+    const g = drag.current;
+    if (!g) return;
+    let dx = e.clientX - g.x;
+    const dy = e.clientY - g.y;
+    if (!g.active) {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        g.active = true; g.x = e.clientX; dx = 0;
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        track.current.style.transition = "none";
+      } else if (Math.abs(dy) > 10) drag.current = null;
+      return;
+    }
+    const now = performance.now();
+    g.v = (e.clientX - g.lx) / Math.max(1, now - g.lt); g.lx = e.clientX; g.lt = now;
+    if (atEnd && dx < 0) dx = -Math.pow(-dx, 0.75); // Gummiband: keine Zukunft
+    g.dx = dx;
+    track.current.style.transform = `translateX(calc(-33.3333% + ${dx}px))`;
+  };
+  const up = () => {
+    const g = drag.current;
+    drag.current = null;
+    if (!g || !g.active) return;
+    dragged.current = true;
+    setTimeout(() => { dragged.current = false; }, 60);
+    const w = vp.current?.offsetWidth || 300;
+    if ((g.dx < -w * 0.18 || g.v < -0.45) && !atEnd) go(1);
+    else if (g.dx > w * 0.18 || g.v > 0.45) go(-1);
+    else snapBack();
+  };
+
+  const weeks = [far && jump < selected ? far : addDays(monday, -7), monday, far && jump > selected ? far : addDays(monday, 7)];
+  const pick = (d) => { if (dragged.current || d === selected || d > t) return; haptic(); selectDay(d); };
+
   return html`
-    <div class="row" style="gap:6px">
-      <button class="icon-btn sm fill pointer-only" aria-label="Vorige Woche" onClick=${() => shift(-1)}>${Icon.left()}</button>
-      <div class="week card grow" onTouchStart=${start} onTouchEnd=${end}>
-        ${days.map((d) => html`
-          <button class=${cx("day", d === selected && "sel", d === t && "today", logged.has(d) && "logged", d > t && "future")}
-            disabled=${d > t} aria-label=${longDate(d)} aria-pressed=${d === selected}
-            onClick=${() => { if (d !== selected) { haptic(); selectDay(d); } }}>
-            <span>${weekdayShort(d)}</span><b>${d % 100}</b><i></i>
-          </button>`)}
+    <div class="row week-row">
+      <button class="icon-btn btn-glass pointer-only" aria-label="Vorige Woche" onClick=${() => go(-1)}>${Icon.left()}</button>
+      <div ref=${vp} class="week card grow" onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}>
+        <div ref=${track} class="week-track">
+          ${weeks.map((m, wi) => html`
+            <div key=${m} class="week-days" aria-hidden=${wi !== 1} inert=${wi !== 1}>
+              ${Array.from({ length: 7 }, (_, i) => addDays(m, i)).map((d) => html`
+                <button class=${cx("day", d === selected && "sel", d === t && "today", logged.has(d) && "logged", d > t && "future")}
+                  disabled=${d > t} aria-label=${longDate(d)} aria-pressed=${d === selected} onClick=${() => pick(d)}>
+                  <span>${weekdayShort(d)}</span><b>${d % 100}</b><i></i>
+                </button>`)}
+            </div>`)}
+        </div>
       </div>
-      <button class="icon-btn sm fill pointer-only" aria-label="Nächste Woche" disabled=${addDays(monday, 7) > t}
-        style=${addDays(monday, 7) > t ? "opacity:.3" : ""} onClick=${() => shift(1)}>${Icon.right()}</button>
-    </div>
-    ${selected !== t && html`<div class="center" style="margin-top:8px">
-      <button class="btn-plain btn" onClick=${() => { haptic(); selectDay(t); }}>Zurück zu heute</button></div>`}`;
+      <button class="icon-btn btn-glass pointer-only" aria-label="Nächste Woche" disabled=${atEnd} onClick=${() => go(1)}>${Icon.right()}</button>
+    </div>`;
 }
 
 // ── Kalorien ──

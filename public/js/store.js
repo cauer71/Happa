@@ -3,7 +3,7 @@
 
 import { useLayoutEffect, useReducer, useRef } from "preact/hooks";
 import { api } from "./api.js";
-import { today, addDays, storage, uid, haptic, reduceMotion } from "./util.js";
+import { today, addDays, mondayOf, storage, uid, haptic, reduceMotion } from "./util.js";
 import { goals, earnedBadges, BADGES, E } from "./nutrition.js";
 import { putThumb, deleteThumb, clearThumbs } from "./thumbs.js";
 
@@ -21,10 +21,12 @@ export const state = {
   lastWeight: null,       // { d, w }
   weights: null,          // [[d, kg], …] – einmal pro Sitzung geladen
   aiLimit: 40,
+  entries: 0,             // Anzahl aller Einträge (Abzeichen „100 Einträge“)
   tab: "heute",
   overlays: [],           // [{ id, render, closing }]
   toast: null,
   celebrate: null,
+  celebrateQueue: [],     // weitere neue Abzeichen, nacheinander gefeiert
 };
 
 const listeners = new Set();
@@ -124,7 +126,16 @@ export function dismissToast() {
   set({ toast: { ...state.toast, closing: true } });
   toastTimer = setTimeout(() => set({ toast: null }), 300);
 }
-export const celebrate = (badge) => set({ celebrate: badge });
+export function celebrate(badge) {
+  if (state.celebrate) set({ celebrateQueue: [...state.celebrateQueue, badge] });
+  else set({ celebrate: badge });
+}
+// Feier schließen; das nächste Abzeichen folgt, sobald die alte Karte weg ist
+export function closeCelebrate() {
+  const [next, ...rest] = state.celebrateQueue;
+  set({ celebrate: null, celebrateQueue: rest });
+  if (next) setTimeout(() => set({ celebrate: next }), 380);
+}
 
 // ── Laden ──
 export async function boot() {
@@ -142,6 +153,7 @@ export async function boot() {
       logged: new Set(me.logged),
       lastWeight: me.lastWeight,
       aiLimit: me.aiLimit,
+      entries: me.entries || 0,
       phase: me.profile && me.profile.startWeight ? "app" : "onboarding",
     });
   } catch (err) {
@@ -248,6 +260,7 @@ async function mutateDay(d, apply, undo, request) {
 // Mehrere Einträge in EINER Anfrage (alles oder nichts). Wiederholungen mit denselben
 // IDs legt der Server nicht doppelt an.
 export async function addEntries(d, entries, thumb) {
+  const before = state.days[d]?.log || [];
   const ids = new Set(entries.map((e) => e[E.id]));
   const res = await mutateDay(
     d,
@@ -256,6 +269,8 @@ export async function addEntries(d, entries, thumb) {
     () => api(`/days/${d}/entries`, { method: "POST", body: entries }),
   );
   if (thumb) entries.forEach((e) => putThumb(e[E.id], thumb));
+  const had = new Set(before.map((e) => e[E.id]));
+  set({ entries: state.entries + res.day.log.filter((e) => ids.has(e[E.id]) && !had.has(e[E.id])).length });
   return res.day;
 }
 
@@ -284,6 +299,7 @@ export async function removeEntry(d, id) {
     },
     () => api(`/days/${d}/entries/${id}`, { method: "DELETE" }),
   );
+  if (old) set({ entries: Math.max(0, state.entries - 1) });
   return old;
 }
 
@@ -374,6 +390,8 @@ export async function checkBadges(d = state.selected, extra = {}) {
     profile: state.profile,
     usedAi: extra.usedAi || day.log.some((e) => e[E.src] === "k"),
     isPast: d < today() || new Date().getHours() >= 20,
+    weekDone: Array.from({ length: 7 }, (_, i) => addDays(mondayOf(today()), i)).every((x) => state.logged.has(x)),
+    entries: state.entries,
   });
   const have = state.profile.badges || {};
   const fresh = earned.filter((id) => !have[id]);
@@ -381,7 +399,9 @@ export async function checkBadges(d = state.selected, extra = {}) {
   const badges = {};
   for (const id of fresh) badges[id] = today();
   try { await saveProfile({ badges: { ...have, ...badges } }); } catch { return; /* nächstes Mal */ }
-  celebrate(BADGES.find((b) => b.id === fresh[0]));
+  // große Meilensteine zuerst, dann der Reihe nach
+  const list = BADGES.filter((b) => fresh.includes(b.id)).sort((a, b) => (b.big ? 1 : 0) - (a.big ? 1 : 0));
+  list.forEach(celebrate);
 }
 
 // ── Zuletzt verwendet: nur auf dem Gerät (spart Schreibzugriffe) ──

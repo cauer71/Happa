@@ -1,6 +1,6 @@
 // Happa – Einstieg: Startanimation, Tabs, Overlays.
 import { render } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { html, cx, haptic, applyTheme } from "./util.js";
 import { useStore, boot, state, setTab } from "./store.js";
 import { Icon } from "./icons.js";
@@ -17,12 +17,30 @@ const TABS = [
   { id: "profil", label: "Profil", icon: Icon.person },
 ];
 
+// Die Glas-Linse gleitet unter den aktiven Tab – unten als Kapsel, am PC in der Seitenleiste.
 function TabBar({ tab, inert }) {
-  const idx = TABS.findIndex((t) => t.id === tab);
+  const bar = useRef();
+  const lens = useRef();
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = bar.current?.querySelector(".tab.active");
+      const l = lens.current;
+      if (!el || !l) return;
+      const first = !l.dataset.placed;
+      if (first) l.style.transition = "none"; // beim Start nicht hineingleiten
+      l.style.width = el.offsetWidth + "px";
+      l.style.height = el.offsetHeight + "px";
+      l.style.transform = `translate(${el.offsetLeft}px, ${el.offsetTop}px)`;
+      if (first) { void l.offsetWidth; l.style.transition = ""; l.dataset.placed = "1"; }
+    };
+    place();
+    addEventListener("resize", place);
+    return () => removeEventListener("resize", place);
+  }, [tab]);
   return html`
     <nav class="tabbar-wrap" aria-label="Hauptnavigation" inert=${inert}>
-      <div class="tabbar glass">
-        <i class="tab-lens" style=${`transform:translateX(${idx * 100}%)`} aria-hidden="true"></i>
+      <div ref=${bar} class="tabbar glass">
+        <i ref=${lens} class="tab-lens" aria-hidden="true"></i>
         ${TABS.map((t) => html`
           <button class=${cx("tab", t.id === tab && "active")} aria-current=${t.id === tab ? "page" : undefined}
             onClick=${() => setTab(t.id)}>${t.icon()}<span>${t.label}</span></button>`)}

@@ -17,14 +17,14 @@ Die Analyse der Vorbild-Apps (YAZIO, MyFitnessPal, FDDB, Lifesum, Zanadio, Noom)
 | **Start** | kurze Animation mit großem App-Symbol (Gabel, Avocado, Ring) |
 | **Anmeldung** | Cloudflare Access vor der ganzen Seite; der Worker prüft zusätzlich das signierte Access-Token. Jede E-Mail-Adresse hat ihr eigenes Profil. |
 | **Onboarding** | Name, Geschlecht, Geburtsjahr, Größe, Gewicht, Ziel, Aktivität, Tempo → Tagesziel nach Mifflin-St Jeor; höchstens 0,5 kg/Woche, nie unter 1.200/1.500 kcal, kein Ziel im Untergewicht |
-| **Heute** | Wochenleiste (wischen), Kalorienring, Makro-Balken, vier Mahlzeiten, Wasser-Gläser, Gewicht, Tipp des Tages |
+| **Heute** | Wochenleiste (gleitet beim Blättern, folgt dem Finger, federt an der Gegenwart zurück, „Heute“-Knopf), Kalorienring, Makro-Balken, vier Mahlzeiten, Wasser-Gläser, Gewicht, Tipp des Tages |
 | **Foto-Erkennung** | Live-Kamera (oder Foto/Galerie) → Workers AI erkennt Bestandteile, Menge und Nährwerte → Mengen anpassen, KI-Schätzung oder Datenbankwert wählen, Hinweis geben und neu erkennen |
 | **Suche** | 7.140 Lebensmittel aus dem Bundeslebensmittelschlüssel (offline, im Browser) + Markenprodukte über Open Food Facts |
 | **Barcode** | eingebaute Erkennung (Android/Chrome) bzw. ZXing (iPhone), Nummer auch von Hand |
-| **Fortschritt** | Gewichtskurve mit Ziel, Kalorien der Woche, Nährstoffverteilung, Prognose „Wenn jede Woche so wäre …“, Serie mit Kalender, Abzeichen |
-| **Motivation** | Serie (🔥), 11 Abzeichen mit Konfetti, freundliche Rückmeldungen, sachliche Tipps, Haptik |
-| **Profil** | Ziele (automatisch/eigenes), Nährstoffverteilung, Wasser, Körperdaten, Hell/Dunkel, Datenexport (JSON), Abmelden, Konto löschen |
-| **Desktop** | ab 960 px schwebende Seitenleiste und zweispaltiges Layout |
+| **Fortschritt** | Gewichtskurve mit Ziel, Kalorien der Woche, Nährstoffverteilung, Prognose „Wenn jede Woche so wäre …“, Serie mit Kalender |
+| **Motivation** | Serie (Flamme, grau bei 0), 13 Abzeichen: Konfetti, bei großen Meilensteinen (7 und 30 Tage, 100 Einträge, Zielgewicht) Feuerwerk; freundliche Rückmeldungen, sachliche Tipps, Haptik |
+| **Profil** | Abzeichen-Sammlung, Ziele (automatisch/eigenes), Nährstoffverteilung, Wasser, Körperdaten, Hell/Dunkel, Datenexport (JSON), Abmelden, Konto löschen |
+| **Desktop** | ab 960 px schwebende Seitenleiste (gleitende Glas-Auswahl) und zweispaltiges Layout |
 
 ## Kosten: alles im kostenlosen Cloudflare-Plan
 
@@ -68,7 +68,7 @@ docs/ANALYSE.md      Analyse der sechs Abnehm-Apps
 
 | Methode | Pfad | Zweck |
 | --- | --- | --- |
-| GET | `/api/me?d=JJJJMMTT` | Profil, heutiger Tag, Serie, letzte Wiegung |
+| GET | `/api/me?d=JJJJMMTT` | Profil, heutiger Tag, Serie, letzte Wiegung, Anzahl Einträge |
 | PUT | `/api/profile` | Profil speichern |
 | GET | `/api/days?from=&to=` | Tage eines Zeitraums |
 | PUT | `/api/days/:d` | Wasser (ml) und/oder Gewicht (kg) setzen |

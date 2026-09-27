@@ -54,7 +54,7 @@ export const cx = (...parts) => parts.filter(Boolean).join(" ");
 export function haptic(kind = "light") {
   try {
     if (navigator.vibrate) {
-      navigator.vibrate(kind === "success" ? [12, 60, 18] : kind === "heavy" ? 22 : 9);
+      navigator.vibrate(kind === "big" ? [30, 60, 30, 60, 30, 60, 120] : kind === "success" ? [20, 40, 30] : kind === "heavy" ? 22 : 9);
       return;
     }
     document.getElementById("haptic")?.click();

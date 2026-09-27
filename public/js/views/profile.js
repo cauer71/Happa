@@ -5,6 +5,7 @@ import { Icon } from "../icons.js";
 import { useStore, openOverlay, closeOverlay, saveProfile, toast, currentGoals, currentWeight, deleteAccount, clearLocalData, state } from "../store.js";
 import { Sheet, Seg, NavBar, useScrolled } from "../ui.js";
 import { ACTIVITY, SEXES, PACES, plan, bmi } from "../nutrition.js";
+import { BadgesCard } from "./progress.js";
 
 const SPLITS = [
   { id: "balanced", name: "Ausgewogen", split: { carbs: 50, protein: 20, fat: 30 }, desc: "Empfehlung der DGE" },
@@ -44,6 +45,8 @@ export function ProfileView() {
               <div><div class="kpi" style="font-size:22px">${n1(bmi(currentWeight(), p.height || 170))}</div><div class="muted" style="font-size:12px">BMI</div></div>
             </div>
           </section>
+
+          <${BadgesCard}/>
 
           <div>
             <div class="section-title">Ziele</div>

@@ -61,7 +61,6 @@ export function ProgressView() {
               <div class="muted" style="font-size:13px;margin-top:8px">Ziel: ${(s.profile.split || { carbs: 50, protein: 20, fat: 30 }).carbs} / ${(s.profile.split || { protein: 20 }).protein} / ${(s.profile.split || { fat: 30 }).fat} %</div>`
               : html`<div class="muted" style="font-size:15px">Sobald du etwas eingetragen hast, siehst du hier deine Verteilung.</div>`}
           </section>
-          <${BadgesCard}/>
         </div>
       </div>
     </main>`;
@@ -207,7 +206,8 @@ function StreakCard() {
     </section>`;
 }
 
-function BadgesCard() {
+// Sammlung der Abzeichen (im Profil); große Meilensteine in Gold, die übrigen in Grün
+export function BadgesCard() {
   const have = state.profile.badges || {};
   const count = BADGES.filter((b) => have[b.id]).length;
   return html`
@@ -215,9 +215,9 @@ function BadgesCard() {
       <div class="card-title"><span class="icon-dot" style="background:color-mix(in srgb, var(--gold) 20%, transparent)">🏅</span>Abzeichen <span class="more">${count} / ${BADGES.length}</span></div>
       <div class="badges">
         ${BADGES.map((b) => html`
-          <button class=${cx("badge", !have[b.id] && "locked")} onClick=${() => { haptic(); if (have[b.id]) celebrate(b); else toast(b.desc, "🔒"); }}
+          <button class=${cx("badge", b.big && "big", !have[b.id] && "locked")} onClick=${() => { haptic(); if (have[b.id]) celebrate(b); else toast(b.desc, "🔒"); }}
             title=${b.desc} aria-label=${`${b.name}: ${b.desc}${have[b.id] ? "" : " (noch nicht erreicht)"}`}>
-            <div class="medal">${b.e}</div><b>${b.name}</b>
+            <div class="medal">${b.e}</div><b>${b.name}</b><small>${have[b.id] ? "Gesammelt" : b.big ? "Offen · Feuerwerk" : "Offen · Konfetti"}</small>
           </button>`)}
       </div>
     </section>`;

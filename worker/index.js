@@ -119,10 +119,12 @@ async function lastWeight(env, uid) {
 async function handleMe(env, email, url) {
   const today = dayParam(url.searchParams.get("d"));
   const user = await userRow(env, email, true);
-  const [dayRes, loggedRes, weightRes] = await env.DB.batch([
+  const [dayRes, loggedRes, weightRes, countRes] = await env.DB.batch([
     env.DB.prepare("SELECT d, log, water, weight, ai FROM days WHERE uid = ? AND d = ?").bind(user.id, today),
     env.DB.prepare("SELECT d FROM days WHERE uid = ? AND d <= ? AND log != '[]' ORDER BY d DESC LIMIT 400").bind(user.id, today),
     env.DB.prepare("SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL ORDER BY d DESC LIMIT 1").bind(user.id),
+    // Anzahl aller Einträge (für das Abzeichen „100 Einträge“)
+    env.DB.prepare("SELECT COALESCE(SUM(json_array_length(log)), 0) AS n FROM days WHERE uid = ?").bind(user.id),
   ]);
   const logged = loggedRes.results.map((r) => r.d);
   const lw = weightRes.results[0];
@@ -133,6 +135,7 @@ async function handleMe(env, email, url) {
     streak: streaks(logged, today),
     logged: logged.slice(0, 60),
     lastWeight: lw ? { d: lw.d, w: lw.weight } : null,
+    entries: countRes.results[0]?.n || 0,
     aiLimit: Number(env.AI_DAILY_LIMIT) || 40,
   });
 }
