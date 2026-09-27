@@ -3,7 +3,7 @@ import { html, haptic } from "../util.js";
 import { Icon } from "../icons.js";
 import { openOverlay, toast } from "../store.js";
 import { Sheet } from "../ui.js";
-import { MCP_URL, COACH_URL, openClaudeGuide } from "../claude.js";
+import { MCP_URL, COACH_URL, openClaudeGuide, CoachLogo } from "../claude.js";
 
 async function copyUrl() {
   haptic();
@@ -41,7 +41,7 @@ const TOPICS = [
       <button class="btn btn-glass block" onClick=${openClaudeGuide}>${Icon.sparkles()} Kurze Anleitung ansehen</button>`,
   },
   {
-    id: "coach", e: "📊", title: "Happa Coach",
+    id: "coach", e: () => html`<${CoachLogo} size=${26}/>`, title: "Happa Coach",
     body: () => html`
       <p>Der Coach läuft in Claude und lädt deine Daten über den Connector: Wochenrückblick, Chat über deine Daten und Rezepte für dein Restbudget. Er nutzt dein Claude-Kontingent, nicht Happa.</p>
       <a class="btn btn-glass block" href=${COACH_URL} target="_blank" rel="noopener">Coach öffnen</a>`,
@@ -108,7 +108,7 @@ function HelpSheet({ id, closing, topic }) {
       <div class="help">
         ${TOPICS.map((t) => html`
           <details class="help-item" open=${t.id === topic}>
-            <summary><span class="help-e" aria-hidden="true">${t.e}</span><span class="grow">${t.title}</span><span class="chev">${Icon.chevron()}</span></summary>
+            <summary><span class="help-e" aria-hidden="true">${typeof t.e === "function" ? t.e() : t.e}</span><span class="grow">${t.title}</span><span class="chev">${Icon.chevron()}</span></summary>
             <div class="help-body">${t.body()}</div>
           </details>`)}
       </div>

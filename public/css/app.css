@@ -854,6 +854,12 @@ a { color: var(--accent-text); }
 .cg-dots-nav button.on { width: 26px; background: color-mix(in srgb, var(--accent) 35%, transparent); }
 .cg-dots-nav button i { position: absolute; inset: 0; background: var(--accent); transform-origin: left; animation: cg-progress linear forwards; }
 
+.coach-logo { display: block; flex: none; }
+.list-icon.coach-icon { background: none; padding: 0; overflow: visible; }
+.list-icon.coach-icon .coach-logo { width: 30px; height: 30px; border-radius: 8px; }
+.cg-promo-art .coach-logo { border-radius: 10px; box-shadow: 0 4px 12px rgba(10, 132, 88, .3); }
+.help-e .coach-logo { margin: 0 auto; }
+
 /* Hilfe */
 .help { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }
 .help-item { border-radius: 18px; background: var(--card-solid); border: .5px solid var(--sep); overflow: hidden; }

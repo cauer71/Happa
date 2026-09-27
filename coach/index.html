@@ -94,8 +94,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Kopf */
 .top { display: flex; align-items: center; gap: 14px; }
-.logo { width: 52px; height: 52px; border-radius: 14px; background: var(--accent-grad); display: grid; place-items: center; flex: none; box-shadow: 0 6px 16px rgba(10, 132, 88, .3); }
-.logo svg { width: 30px; height: 30px; }
+.logo { width: 56px; height: 56px; flex: none; border-radius: 13px; box-shadow: 0 6px 16px rgba(10, 132, 88, .3); }
 .top h1 { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
 .top p { margin: 2px 0 0; color: var(--text-2); font-size: 15px; }
 .pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: var(--warn-bg); color: var(--warn-text); vertical-align: middle; margin-left: 6px; }
@@ -119,7 +118,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.block { width: 100%; justify-content: center; }
 
 textarea, input[type=text], select { width: 100%; border: 1px solid var(--sep); background: var(--fill); border-radius: 14px; padding: 12px 14px; font-size: 16px; }
-textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 .error { color: var(--danger); font-size: 14px; margin: 0; }
 
 /* Kennzahlen */
@@ -165,7 +163,11 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
 .chips button { border: 1px solid var(--sep); background: var(--card); border-radius: 99px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
 .chips button:hover { background: var(--fill); }
 .composer { display: flex; gap: 8px; align-items: flex-end; }
-.composer textarea { min-height: 46px; height: 46px; font-family: var(--font); font-size: 16px; border-radius: 23px; padding: 11px 16px; }
+.composer textarea { flex: 1; min-width: 0; min-height: 48px; height: 48px; max-height: 164px; resize: none; overflow-y: hidden; font-family: var(--font); font-size: 16px; line-height: 1.4; border-radius: 24px; padding: 12px 18px; }
+.composer textarea:focus { outline: none; border-color: var(--accent); background: var(--card); }
+.send { width: 48px; height: 48px; flex: none; border: 0; border-radius: 24px; background: var(--accent-grad); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.send:disabled { opacity: .45; cursor: default; }
+.send svg { width: 22px; height: 22px; }
 
 /* Rezepte */
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -207,9 +209,7 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
 
 <div class="wrap">
   <header class="top">
-    <div class="logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M7 3v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M9 11v10"/><path d="M17 3c-1.7 1.2-2.5 3.3-2.5 6 0 1.4.9 2.5 2.5 2.5V21"/></svg>
-    </div>
+    <svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="coach-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16b377"/><stop offset=".5" stop-color="#0a8458"/><stop offset="1" stop-color="#07706f"/></linearGradient></defs><rect width="512" height="512" rx="116" fill="url(#coach-g)"/><path d="M150 128v96a40 40 0 0 0 80 0v-96M190 128v96M190 264v136" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/><path d="M340 118C340 187 363 210 432 210C363 210 340 233 340 302C340 233 317 210 248 210C317 210 340 187 340 118Z" fill="#fff"/><path d="M372 318C372 347 381 356 410 356C381 356 372 365 372 394C372 365 363 356 334 356C363 356 372 347 372 318Z" fill="#fff" opacity=".78"/></svg>
     <div>
       <h1>Happa Coach <span class="pill">Test</span></h1>
       <p>Claude wertet deine Happa-Daten aus.</p>
@@ -265,8 +265,8 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
       <button type="button">Esse ich genug Eiweiß?</button>
     </div>
     <form class="composer" id="chat-form">
-      <textarea id="chat-input" rows="1" placeholder="Nachricht" aria-label="Nachricht an den Coach"></textarea>
-      <button class="btn primary" id="btn-send" type="submit">Senden</button>
+      <textarea id="chat-input" rows="1" placeholder="Frag den Coach …" aria-label="Nachricht an den Coach"></textarea>
+      <button class="send" id="btn-send" type="submit" aria-label="Senden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg></button>
     </form>
   </section>
 
@@ -688,7 +688,16 @@ ${contextText(data, A)}`;
       chatBusy = false; $("btn-send").disabled = false; renderChat();
     }
   }
-  $("chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("chat-input").value; $("chat-input").value = ""; send(v); });
+  // Feld wächst mit dem Text (bis ca. 5 Zeilen), danach scrollt es
+  function fitInput() {
+    const el = $("chat-input");
+    el.style.height = "auto";
+    const h = Math.min(el.scrollHeight + 2, 164);
+    el.style.height = Math.max(48, h) + "px";
+    el.style.overflowY = el.scrollHeight + 2 > 164 ? "auto" : "hidden";
+  }
+  $("chat-input").addEventListener("input", fitInput);
+  $("chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("chat-input").value; $("chat-input").value = ""; fitInput(); send(v); });
   $("chat-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chat-form").requestSubmit(); } });
   $("chat-chips").addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") send(e.target.textContent); });
 

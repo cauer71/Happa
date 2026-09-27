@@ -12,6 +12,20 @@ export const COACH_URL = "https://claude.ai/artifact/WY5UBBEojUFsZmzDwxHJJr";
 export const MCP_URL = "https://happa-mcp.auer.page/mcp";
 const STEP_MS = 5200;
 
+// Symbol des Happa Coach: Gabel (Essen) + Funke (KI), im Happa-Grün
+let logoId = 0;
+export function CoachLogo({ size = 30 }) {
+  const id = "coachg" + (++logoId);
+  const bold = size < 44;
+  return html`<svg class="coach-logo" width=${size} height=${size} viewBox="0 0 512 512" aria-hidden="true">
+    <defs><linearGradient id=${id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16b377"/><stop offset=".5" stop-color="#0a8458"/><stop offset="1" stop-color="#07706f"/></linearGradient></defs>
+    <rect width="512" height="512" rx="116" fill=${`url(#${id})`}/>
+    <path d="M150 128v96a40 40 0 0 0 80 0v-96M190 128v96M190 264v136" fill="none" stroke="#fff" stroke-width=${bold ? 36 : 28} stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M340 118C340 187 363 210 432 210C363 210 340 233 340 302C340 233 317 210 248 210C317 210 340 187 340 118Z" fill="#fff"/>
+    ${!bold && html`<path d="M372 318C372 347 381 356 410 356C381 356 372 365 372 394C372 365 363 356 334 356C363 356 372 347 372 318Z" fill="#fff" opacity=".78"/>`}
+  </svg>`;
+}
+
 const markSeen = () => { if (!state.profile.claudeSeen) saveProfile({ claudeSeen: 1 }).catch(() => {}); };
 
 export function openClaudeGuide() {
@@ -109,7 +123,7 @@ export function ClaudePromo() {
   return html`
     <section class="card cg-promo">
       <button class="icon-btn sm fill cg-close" aria-label="Hinweis schließen" onClick=${() => { haptic(); markSeen(); }}>${Icon.close()}</button>
-      <div class="cg-promo-art" aria-hidden="true"><span>📸</span><span class="cg-arrow">→</span><span>✨</span><span class="cg-arrow">→</span><span>🍽️</span></div>
+      <div class="cg-promo-art" aria-hidden="true"><span>📸</span><span class="cg-arrow">→</span><${CoachLogo} size=${40}/><span class="cg-arrow">→</span><span>🍽️</span></div>
       <div class="cg-promo-kicker">Neu</div>
       <h3>Happa mit Claude</h3>
       <p>Essen oder Kühlschrank im Claude-Chat fotografieren – Claude rechnet mit echten Nährwerten und trägt es in Happa ein.</p>
@@ -129,7 +143,7 @@ export function ClaudeCard() {
           <span class="chev">${Icon.chevron()}</span>
         </button>
         <a class="list-row" href=${COACH_URL} target="_blank" rel="noopener" style="color:inherit;text-decoration:none">
-          <span class="list-icon" style="background:#5e5ce6">📊</span>
+          <span class="list-icon coach-icon"><${CoachLogo} size=${30}/></span>
           <span class="grow">Happa Coach öffnen</span>
           <span class="chev">${Icon.chevron()}</span>
         </a>
