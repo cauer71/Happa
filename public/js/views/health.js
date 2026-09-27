@@ -1,7 +1,7 @@
 // TEST: Aktivität aus Apple Health über die iPhone-App „Health Auto Export“.
 // Einrichtung (Schlüssel, Anleitung, Status) und die Karte „Verbrauch“ auf „Heute“.
 import { useState, useEffect } from "preact/hooks";
-import { html, cx, haptic, n0 } from "../util.js";
+import { html, cx, haptic, n0, storage } from "../util.js";
 import { Icon } from "../icons.js";
 import { openOverlay, toast, state, set } from "../store.js";
 import { Sheet } from "../ui.js";
@@ -9,7 +9,6 @@ import { api } from "../api.js";
 import { totals } from "../nutrition.js";
 
 const IMPORT_URL = "https://happa-mcp.auer.page/health/import";
-const HEADER = "X-Happa-Key";
 
 async function copy(text, label) {
   haptic();
@@ -82,11 +81,14 @@ export function openHealth() {
 
 function HealthSheet({ id, closing }) {
   const [info, setInfo] = useState(null);
-  const [key, setKey] = useState("");
+  // Der Schlüssel liegt auf dem Server nur als Hash; auf diesem Gerät merkt sich Happa ihn,
+  // damit die fertige Adresse jederzeit kopiert werden kann.
+  const [key, setKeyState] = useState(() => storage.get("healthKey", ""));
+  const setKey = (k) => { setKeyState(k); storage.set("healthKey", k); };
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState("");
 
-  const load = () => api("/health").then(setInfo).catch((err) => toast(err.message, "⚠️"));
+  const load = () => api("/health").then((r) => { setInfo(r); if (!r.hasKey && key) setKey(""); }).catch((err) => toast(err.message, "⚠️"));
   useEffect(() => { load(); }, []);
 
   const newKey = async () => {
@@ -133,12 +135,7 @@ function HealthSheet({ id, closing }) {
           <button class="link-btn" onClick=${() => { haptic(); load(); }}>${Icon.refresh()} Aktualisieren</button>`}
       </section>
 
-      ${key && html`
-        <div class="info-box warn" style="margin-top:14px">Dein Schlüssel – er wird <b>nur jetzt</b> angezeigt. Kopiere ihn in Health Auto Export.</div>
-        <button class="cg-url" style="margin-top:8px" onClick=${() => copy(key, "Schlüssel")} aria-label="Schlüssel kopieren"><code>${key}</code><span>Kopieren</span></button>
-        <div class="label" style="margin-top:12px">Am einfachsten: Adresse mit Schlüssel</div>
-        <p class="muted" style="margin:0 0 6px;font-size:14px">Diese Adresse als <b>URL</b> in Health Auto Export eintragen – dann braucht es keinen Header.</p>
-        <button class="cg-url" onClick=${() => copy(`${IMPORT_URL}/${key}`, "Adresse mit Schlüssel")} aria-label="Adresse mit Schlüssel kopieren"><code>${IMPORT_URL}/${key.slice(0, 8)}…</code><span>Kopieren</span></button>`}
+
 
       <div class="row" style="gap:10px;margin-top:14px">
         <button class=${cx("btn grow", info?.hasKey ? "btn-glass" : "btn-primary", confirm === "key" && "danger-soft")} disabled=${busy} onClick=${newKey}>
@@ -149,8 +146,11 @@ function HealthSheet({ id, closing }) {
       <div class="label">In Health Auto Export einrichten</div>
       <ol class="health-steps">
         <li>Unten auf <b>Automations</b> tippen, dann <b>+</b> (neue Automation), Typ <b>REST API</b>.</li>
-        <li><b>URL</b>: <button class="cg-url" style="margin-top:6px" onClick=${() => copy(IMPORT_URL, "Adresse")}><code>${IMPORT_URL}</code><span>Kopieren</span></button></li>
-        <li><b>Schlüssel</b>: entweder die <b>Adresse mit Schlüssel</b> von oben als URL verwenden (einfachste Variante) – oder unter <b>Headers</b> einen Header anlegen: Name <button class="chip" onClick=${() => copy(HEADER, "Header-Name")}>${HEADER}</button>, Wert: dein Schlüssel. Danach die Automation speichern.</li>
+        <li><b>URL</b> – deine Adresse mit Schlüssel:
+          ${key ? html`<button class="cg-url" style="margin-top:6px" onClick=${() => copy(`${IMPORT_URL}/${key}`, "Adresse mit Schlüssel")} aria-label="Adresse mit Schlüssel kopieren"><code>${IMPORT_URL}/${key.slice(0, 10)}…</code><span>Kopieren</span></button>`
+            : html`<div class="info-box warn" style="margin-top:6px">${info?.hasKey ? "Der Schlüssel wurde auf einem anderen Gerät erzeugt. Tippe oben auf „Neuer Schlüssel“, dann steht hier deine Adresse." : "Tippe oben auf „Schlüssel erzeugen“, dann steht hier deine Adresse."}</div>`}
+          <div class="muted" style="font-size:13px;margin-top:6px">Die Adresse endet auf <code>/import/hk_…</code>. Ins URL-Feld der Automation einfügen, das alte vorher löschen.</div></li>
+        <li><b>Headers</b> brauchst du keine – der Schlüssel steckt in der Adresse. Automation <b>speichern</b>.</li>
         <li><b>Data Type</b>: <b>Health Metrics</b>, darin <b>Active Energy</b>, <b>Resting Energy</b> und <b>Step Count</b> wählen.</li>
         <li><b>Export Format</b> JSON, <b>Aggregate Data</b> an mit Intervall <b>Days</b>, <b>Date Range</b> z. B. <b>Previous 7 Days</b> (ersetzt die Tageswerte, nichts wird doppelt).</li>
         <li>Zweite Automation genauso, aber Data Type <b>Workouts</b> – ohne Routen- und Workout-Detaildaten.</li>
