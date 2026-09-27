@@ -434,7 +434,7 @@ export default {
       }
       if (p === "/token" || p === "/register" || p.startsWith("/.well-known/")) return authServer.fetch(request, env, ctx);
       // TEST: Import aus Health Auto Export (eigener Schlüssel, siehe worker/health.js)
-      if (p === "/health/import") {
+      if (p === "/health/import" || p.startsWith("/health/import/")) {
         try { return await handleHealthImport(request, env); }
         catch (err) { console.error(err); return Response.json({ error: "Serverfehler" }, { status: 500 }); }
       }

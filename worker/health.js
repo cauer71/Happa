@@ -61,12 +61,16 @@ export async function handleHealthImport(request, env) {
 
   const url = new URL(request.url);
   const auth = request.headers.get("authorization") || "";
-  const key = request.headers.get("x-happa-key") || (auth.match(/^Bearer\s+(\S+)/i) || [])[1] || url.searchParams.get("key") || "";
+  const fromPath = (url.pathname.match(/^\/health\/import\/(hk_[A-Za-z0-9_-]+)$/) || [])[1];
+  const key = (request.headers.get("x-happa-key") || (auth.match(/^Bearer\s+(\S+)/i) || [])[1] || url.searchParams.get("key") || fromPath || "").trim();
+  const via = request.headers.get("x-happa-key") ? "header" : auth ? "bearer" : url.searchParams.get("key") ? "query" : fromPath ? "path" : "none";
   if (!/^hk_[A-Za-z0-9_-]{20,80}$/.test(key)) {
+    console.log(JSON.stringify({ health: "abgelehnt", grund: key ? "format" : "kein Schlüssel", via, laenge: key.length, query: url.search ? "ja" : "nein" }));
     return json({ error: key ? "Schlüssel hat ein ungültiges Format" : "Schlüssel fehlt: Header X-Happa-Key setzen oder ?key=… an die URL hängen" }, 401);
   }
   const row = await env.DB.prepare("SELECT uid FROM health_keys WHERE hash = ?").bind(await sha256(key)).first();
-  if (!row) return json({ error: "Unbekannter Schlüssel" }, 401);
+  if (!row) { console.log(JSON.stringify({ health: "abgelehnt", grund: "unbekannt", via })); return json({ error: "Unbekannter Schlüssel" }, 401); }
+  console.log(JSON.stringify({ health: "angenommen", via, uid: row.uid }));
   const uid = row.uid;
 
   if (Number(request.headers.get("content-length")) > MAX_BYTES) {

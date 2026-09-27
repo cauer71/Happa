@@ -138,7 +138,7 @@ function HealthSheet({ id, closing }) {
         <button class="cg-url" style="margin-top:8px" onClick=${() => copy(key, "Schlüssel")} aria-label="Schlüssel kopieren"><code>${key}</code><span>Kopieren</span></button>
         <div class="label" style="margin-top:12px">Am einfachsten: Adresse mit Schlüssel</div>
         <p class="muted" style="margin:0 0 6px;font-size:14px">Diese Adresse als <b>URL</b> in Health Auto Export eintragen – dann braucht es keinen Header.</p>
-        <button class="cg-url" onClick=${() => copy(`${IMPORT_URL}?key=${key}`, "Adresse mit Schlüssel")} aria-label="Adresse mit Schlüssel kopieren"><code>${IMPORT_URL}?key=${key.slice(0, 8)}…</code><span>Kopieren</span></button>`}
+        <button class="cg-url" onClick=${() => copy(`${IMPORT_URL}/${key}`, "Adresse mit Schlüssel")} aria-label="Adresse mit Schlüssel kopieren"><code>${IMPORT_URL}/${key.slice(0, 8)}…</code><span>Kopieren</span></button>`}
 
       <div class="row" style="gap:10px;margin-top:14px">
         <button class=${cx("btn grow", info?.hasKey ? "btn-glass" : "btn-primary", confirm === "key" && "danger-soft")} disabled=${busy} onClick=${newKey}>
