@@ -8,6 +8,7 @@ import { Toast, Celebrate } from "./ui.js";
 import { TodayView } from "./views/today.js";
 import { ProgressView } from "./views/progress.js";
 import { ProfileView } from "./views/profile.js";
+import { TrainingView } from "./views/training.js";
 import { Onboarding } from "./views/onboarding.js";
 import { openCamera } from "./views/camera.js";
 
@@ -19,6 +20,7 @@ for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
 const TABS = [
   { id: "heute", label: "Heute", icon: Icon.today },
   { id: "fortschritt", label: "Fortschritt", icon: Icon.chart },
+  { id: "training", label: "Training", icon: Icon.dumbbell },
   { id: "profil", label: "Profil", icon: Icon.person },
 ];
 
@@ -83,7 +85,7 @@ function App() {
   if (s.phase === "boot") return null;
   if (s.phase === "error") return html`<${ErrorScreen} message=${s.error}/>`;
 
-  const View = s.tab === "fortschritt" ? ProgressView : s.tab === "profil" ? ProfileView : TodayView;
+  const View = s.tab === "fortschritt" ? ProgressView : s.tab === "training" ? TrainingView : s.tab === "profil" ? ProfileView : TodayView;
   const covered = s.overlays.some((o) => !o.closing) || !!s.celebrate;
   return html`
     ${s.phase === "onboarding"

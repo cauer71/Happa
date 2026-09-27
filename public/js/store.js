@@ -291,6 +291,18 @@ async function mutateDay(d, apply, undo, request) {
   }
 }
 
+// Trainingsplan eines Tages ersetzen (optimistisch, bei Fehler zurück)
+export async function setTraining(d, train) {
+  const before = state.days[d]?.train || [];
+  const res = await mutateDay(
+    d,
+    (day) => ({ ...day, train }),
+    (day) => ({ ...day, train: before }),
+    () => api(`/days/${d}/train`, { method: "PUT", body: { train } }),
+  );
+  return res.day;
+}
+
 // Mehrere Einträge in EINER Anfrage (alles oder nichts). Wiederholungen mit denselben
 // IDs legt der Server nicht doppelt an.
 export async function addEntries(d, entries, thumb) {

@@ -309,7 +309,7 @@ img { display: block; max-width: 100%; }
 .tabbar {
   pointer-events: auto; position: relative;
   flex: 1; max-width: 420px; height: 64px; border-radius: 32px; padding: 5px;
-  display: grid; grid-template-columns: repeat(3, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
 }
 .tab {
   position: relative; z-index: 1; border-radius: 27px;
@@ -901,6 +901,44 @@ a { color: var(--accent-text); }
 .copy-input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; line-height: 1.6; padding-top: 0; padding-bottom: 0; }
 .health-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.45; }
 .btn.danger-soft { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+
+/* Training (Wochenplan) */
+.week-nav { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; }
+.week-label { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.week-label b { font-size: 17px; }
+.week-label span { font-size: 13px; color: var(--text-2); }
+.train-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; padding: 16px 10px; }
+.train-sum b { display: block; font: 700 24px/1.1 var(--font-round); }
+.train-sum b small { font-size: 15px; color: var(--text-2); }
+.train-sum span { font-size: 12px; color: var(--text-2); }
+.train-week { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.train-day { display: flex; gap: 12px; align-items: flex-start; padding: 12px 12px 12px 14px; }
+.train-day.today { box-shadow: var(--shadow), inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+.train-date { width: 34px; flex: none; display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.train-date span { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; }
+.train-date b { font: 700 22px/1.1 var(--font-round); }
+.train-day.today .train-date b, .train-day.today .train-date span { color: var(--accent-text); }
+.train-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.train-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; border: 0; border-radius: 14px; padding: 8px 10px; background: var(--fill); color: var(--text); font: inherit; cursor: pointer; }
+.train-item.extra { cursor: default; background: color-mix(in srgb, var(--streak) 10%, transparent); }
+.train-check { width: 22px; height: 22px; flex: none; border-radius: 11px; border: 2px solid var(--text-3); display: grid; place-items: center; font-weight: 700; color: var(--text-3); margin-top: 1px; }
+.train-check svg { width: 14px; height: 14px; }
+.train-item.done .train-check { background: var(--accent); border-color: var(--accent); color: #fff; }
+.train-item.open .train-check { border-color: var(--accent); }
+.train-item.missed { opacity: .7; }
+.train-item.extra .train-check { border-color: var(--streak); color: var(--streak); }
+.train-title { display: block; font-size: 15px; font-weight: 600; }
+.train-title small { font-weight: 500; }
+.train-done { display: block; font-size: 13px; color: var(--accent-text); margin-top: 1px; }
+.train-item.extra .train-done { color: var(--text-2); }
+.train-sub { display: block; font-size: 13px; color: var(--text-2); margin-top: 1px; }
+.train-empty { font-size: 14px; color: var(--text-3); padding: 8px 0; }
+.train-energy { font-size: 13px; color: var(--text-2); padding-left: 2px; }
+.train-add { flex: none; }
+.sport-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.sport { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border: 0; border-radius: 16px; background: var(--fill); color: var(--text); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.sport span { font-size: 24px; }
+.sport.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-text); box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* Hilfe */
 .help { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; }

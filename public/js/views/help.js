@@ -57,6 +57,16 @@ const TOPICS = [
       </ul>`,
   },
   {
+    id: "training", e: "🏋️", title: "Trainingsplan",
+    body: () => html`
+      <p>Im Tab <b>Training</b> planst du deine Woche wie in einem Kalender: bei einem Tag auf ＋ tippen, Sportart, Dauer und Uhrzeit wählen – auf Wunsch jede Woche wiederholt.</p>
+      <ul>
+        <li><b>Abhaken:</b> passiert automatisch, sobald Health Auto Export ein passendes Workout schickt. Darunter stehen Dauer und kcal.</li>
+        <li>Workouts ohne Plan erscheinen als <b>zusätzlich</b>. Ohne Uhr kannst du eine Einheit auch von Hand abhaken.</li>
+        <li>Oben siehst du die Woche: absolviert, Sport-kcal und Ø Verbrauch.</li>
+      </ul>`,
+  },
+  {
     id: "health", e: "❤️", title: "Aktivität aus Apple Health (Test)",
     body: () => html`
       <p>Mit der iPhone-App <b>Health Auto Export</b> kommen aktive Energie, Ruheenergie, Schritte und Workouts zu Happa. Auf „Heute“ zeigt die Karte „Verbrauch“ dann den Tag mit und ohne Sport.</p>

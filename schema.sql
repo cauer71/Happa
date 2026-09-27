@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS days (
   weight REAL,                                -- Gewicht in kg (nur an Wiegetagen)
   ai     INTEGER NOT NULL DEFAULT 0,          -- KI-Erkennungen an diesem Tag (Tageslimit)
   act    TEXT,                                -- Verbrauch aus Apple Health (JSON, siehe worker/health.js)
+  train  TEXT,                                -- Trainingsplan: [[id, Sportart, Titel, Minuten, "HH:MM", erledigt], ...]
   PRIMARY KEY (uid, d)
 ) WITHOUT ROWID;
 
@@ -27,3 +28,4 @@ CREATE TABLE IF NOT EXISTS health_keys (
 
 -- Bestehende Datenbank nachrüsten (einmalig):
 --   ALTER TABLE days ADD COLUMN act TEXT;
+--   ALTER TABLE days ADD COLUMN train TEXT;

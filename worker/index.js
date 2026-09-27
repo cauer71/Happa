@@ -78,8 +78,21 @@ function cleanEntry(e) {
 
 // act: Verbrauch aus Apple Health (Health Auto Export), siehe worker/health.js
 const dayOut = (row, d) => row
-  ? { d: row.d, log: JSON.parse(row.log || "[]"), water: row.water || 0, weight: row.weight ?? null, ai: row.ai || 0, act: row.act ? JSON.parse(row.act) : null }
-  : { d, log: [], water: 0, weight: null, ai: 0, act: null };
+  ? { d: row.d, log: JSON.parse(row.log || "[]"), water: row.water || 0, weight: row.weight ?? null, ai: row.ai || 0,
+      act: row.act ? JSON.parse(row.act) : null, train: row.train ? JSON.parse(row.train) : [] }
+  : { d, log: [], water: 0, weight: null, ai: 0, act: null, train: [] };
+
+// Trainingsplan: [id, Sportart, Titel, Minuten, "HH:MM", manuell erledigt 0/1]
+function cleanTraining(list) {
+  if (!Array.isArray(list) || list.length > 10) throw new HttpError(400, "0 bis 10 Einheiten pro Tag");
+  return list.map((t) => {
+    if (!Array.isArray(t)) throw new HttpError(400, "Einheit muss ein Array sein");
+    const [id, type, title, minutes, time, done] = t;
+    if (typeof id !== "string" || !/^[a-z0-9]{4,16}$/.test(id)) throw new HttpError(400, "Ungültige Einheiten-ID");
+    return [id, String(type || "sonst").slice(0, 20), String(title || "").trim().slice(0, 40), Math.round(clamp(minutes, 0, 600)),
+      /^\d{2}:\d{2}$/.test(time || "") ? time : "", done ? 1 : 0];
+  });
+}
 
 // Benutzer bei jeder Anfrage über den Index auf users.email auflösen (1 Zeile).
 // Bewusst ohne Zwischenspeicher: Nach "Konto löschen" darf keine alte ID weiterleben.
@@ -124,7 +137,7 @@ async function handleMe(env, email, url) {
   const today = dayParam(url.searchParams.get("d"));
   const user = await userRow(env, email, true);
   const [dayRes, loggedRes, weightRes, countRes] = await env.DB.batch([
-    env.DB.prepare("SELECT d, log, water, weight, ai, act FROM days WHERE uid = ? AND d = ?").bind(user.id, today),
+    env.DB.prepare("SELECT d, log, water, weight, ai, act, train FROM days WHERE uid = ? AND d = ?").bind(user.id, today),
     env.DB.prepare("SELECT d FROM days WHERE uid = ? AND d <= ? AND log != '[]' ORDER BY d DESC LIMIT 400").bind(user.id, today),
     env.DB.prepare("SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL ORDER BY d DESC LIMIT 1").bind(user.id),
     // Anzahl aller Einträge (für das Abzeichen „100 Einträge“)
@@ -172,7 +185,7 @@ async function handleAddEntries(request, env, email, d) {
   const have = new Set(existing ? JSON.parse(existing.log).map((e) => e[0]) : []);
   const fresh = entries.filter((e) => !have.has(e[0]));
   if (!fresh.length) {
-    const row = await env.DB.prepare("SELECT d, log, water, weight, ai, act FROM days WHERE uid = ? AND d = ?").bind(uid, d).first();
+    const row = await env.DB.prepare("SELECT d, log, water, weight, ai, act, train FROM days WHERE uid = ? AND d = ?").bind(uid, d).first();
     return json({ day: dayOut(row, d) });
   }
 
@@ -181,7 +194,7 @@ async function handleAddEntries(request, env, email, d) {
   const row = await env.DB.prepare(
     `INSERT INTO days (uid, d, log) VALUES (?1, ?2, json_array(${refs.join(", ")}))
      ON CONFLICT(uid, d) DO UPDATE SET log = json_insert(days.log, ${refs.map((r) => `'$[#]', ${r}`).join(", ")})
-     RETURNING d, log, water, weight, ai, act`
+     RETURNING d, log, water, weight, ai, act, train`
   ).bind(uid, d, ...params).first();
   return json({ day: dayOut(row, d) }, 201);
 }
@@ -252,7 +265,7 @@ async function handleApi(request, env, ctx, url, email) {
   if (path === "/api/export" && method === "GET") {
     const user = await userRow(env, email, true);
     const { results } = await env.DB.prepare(
-      "SELECT d, log, water, weight, act FROM days WHERE uid = ? ORDER BY d"
+      "SELECT d, log, water, weight, act, train FROM days WHERE uid = ? ORDER BY d"
     ).bind(user.id).all();
     return json({
       app: "Happa", exported: new Date().toISOString(), email,
@@ -269,7 +282,7 @@ async function handleApi(request, env, ctx, url, email) {
     if (to < from) throw new HttpError(400, "Zeitraum ungültig");
     const uid = await userId(env, email);
     const { results } = await env.DB.prepare(
-      "SELECT d, log, water, weight, ai, act FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d LIMIT 400"
+      "SELECT d, log, water, weight, ai, act, train FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d LIMIT 400"
     ).bind(uid, from, to).all();
     return json({ days: results.map((r) => dayOut(r, r.d)) });
   }
@@ -295,11 +308,24 @@ async function handleApi(request, env, ctx, url, email) {
        ON CONFLICT(uid, d) DO UPDATE SET
          water = COALESCE(?3, days.water),
          weight = CASE WHEN ?5 THEN ?4 ELSE days.weight END
-       RETURNING d, log, water, weight, ai, act`
+       RETURNING d, log, water, weight, ai, act, train`
     ).bind(uid, d, water, weight, hasWeight ? 1 : 0).first();
     // Nach dem Entfernen einer Wiegung gleich die neue letzte mitliefern
     const extra = hasWeight && weight === null ? { lastWeight: await lastWeight(env, uid) } : {};
     return json({ day: dayOut(row, d), ...extra });
+  }
+
+  if ((m = path.match(/^\/api\/days\/(\d{8})\/train$/)) && method === "PUT") {
+    const d = dayParam(m[1]);
+    const data = await body(request);
+    const train = JSON.stringify(cleanTraining(data.train));
+    const uid = await userId(env, email);
+    const row = await env.DB.prepare(
+      `INSERT INTO days (uid, d, train) VALUES (?1, ?2, ?3)
+       ON CONFLICT(uid, d) DO UPDATE SET train = ?3
+       RETURNING d, log, water, weight, ai, act, train`
+    ).bind(uid, d, train).first();
+    return json({ day: dayOut(row, d) });
   }
 
   if ((m = path.match(/^\/api\/days\/(\d{8})\/entries$/)) && method === "POST") {
@@ -321,7 +347,7 @@ async function handleApi(request, env, ctx, url, email) {
             json(?4))
          WHERE uid = ?1 AND d = ?2
            AND EXISTS (SELECT 1 FROM json_each(days.log) WHERE json_extract(value, '$[0]') = ?3)
-         RETURNING d, log, water, weight, ai, act`
+         RETURNING d, log, water, weight, ai, act, train`
       ).bind(uid, d, id, JSON.stringify(entry)).first();
       if (!row) throw new HttpError(404, "Eintrag nicht gefunden");
       return json({ day: dayOut(row, d) });
@@ -333,7 +359,7 @@ async function handleApi(request, env, ctx, url, email) {
         `UPDATE days SET log = (SELECT COALESCE(json_group_array(json(value)), '[]')
             FROM json_each(days.log) WHERE json_extract(value, '$[0]') != ?3)
          WHERE uid = ?1 AND d = ?2
-         RETURNING d, log, water, weight, ai, act`
+         RETURNING d, log, water, weight, ai, act, train`
       ).bind(uid, d, id).first();
       return json({ day: dayOut(row, d) });
     }
@@ -460,7 +486,7 @@ export default {
     }
     if (url.pathname === "/connect") return connect(request, env, authServer.getOAuthApi(env));
     // nur für „wrangler dev“ auf dem eigenen Rechner: Import-Test ohne zweite Adresse
-    if (url.pathname === "/health/import" && env.DEV_USER) return handleHealthImport(request, env);
+    if ((url.pathname === "/health/import" || url.pathname.startsWith("/health/import/")) && env.DEV_USER) return handleHealthImport(request, env);
     return app.fetch(request, env, ctx);
   },
 };
