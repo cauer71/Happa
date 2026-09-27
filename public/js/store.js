@@ -172,9 +172,43 @@ function checkNewDay() {
   if (wasToday) selectDay(t);
   recomputeStreak();
 }
-document.addEventListener("visibilitychange", checkNewDay);
-addEventListener("pageshow", checkNewDay);
-addEventListener("focus", checkNewDay);
+// Einträge können auch von außen kommen (Claude über den Connector, ein zweites Gerät):
+// Beim Zurückkehren in die App und alle 60 s, solange sie sichtbar ist, den Stand neu holen.
+// Ein Abruf = 1 Anfrage (/me liefert heute, Profil mit Favoriten, Serie).
+let lastSync = Date.now();
+let syncing = false;
+async function refreshFromServer(minAge = 5000) {
+  if (syncing || state.phase !== "app" || document.visibilityState === "hidden") return;
+  if (Date.now() - lastSync < minAge) return;
+  syncing = true;
+  lastSync = Date.now();
+  try {
+    const t = today();
+    const me = await api(`/me?d=${t}`);
+    const patch = {
+      profile: me.profile || state.profile,
+      serverStreak: me.streak.current,
+      lastWeight: me.lastWeight,
+      entries: me.entries || 0,
+    };
+    if (!busy(t)) {
+      patch.days = { ...state.days, [t]: me.day };
+      const logged = new Set(state.logged);
+      me.day.log.length ? logged.add(t) : logged.delete(t);
+      patch.logged = logged;
+    }
+    set(patch);
+    recomputeStreak();
+    const sel = state.selected;
+    if (sel !== t && state.days[sel]) await loadDay(sel, true);
+  } catch { /* offline oder abgemeldet: beim nächsten Mal wieder */ }
+  finally { syncing = false; }
+}
+function onReturn() { checkNewDay(); refreshFromServer(); }
+document.addEventListener("visibilitychange", onReturn);
+addEventListener("pageshow", onReturn);
+addEventListener("focus", onReturn);
+setInterval(() => refreshFromServer(55000), 60000);
 
 // Laufende Änderungen pro Tag: Solange etwas unterwegs ist, überschreiben Ladevorgänge
 // den lokalen Stand nicht.

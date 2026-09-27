@@ -99,7 +99,7 @@ const TOPICS = [
     id: "trouble", e: "🛠️", title: "Wenn etwas nicht klappt",
     body: () => html`
       <ul>
-        <li><b>Einträge von Claude fehlen:</b> Happa einmal schließen und neu öffnen.</li>
+        <li><b>Einträge von Claude fehlen:</b> Sie erscheinen, sobald du zu Happa zurückkehrst (bei offener App spätestens nach einer Minute). Hilft das nicht, Happa schließen und neu öffnen.</li>
         <li><b>Claude meldet, die Verbindung sei abgelaufen:</b> in Claude unter Connectors bei Happa neu verbinden.</li>
         <li><b>Claude kann nicht eintragen:</b> Verbindung trennen und neu verbinden, dann auf der Happa-Seite „Erlauben“.</li>
         <li><b>Happa startet nicht:</b> auf dem Startbildschirm „Neu laden“ tippen.</li>

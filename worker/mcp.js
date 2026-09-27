@@ -291,7 +291,7 @@ async function toolAdd(env, email, args, scopes) {
     datum: `${weekday(d)} ${iso(d)}`,
     summe_tag: t,
     noch_uebrig: g ? { kcal: g.kcal - t.kcal, eiweiss_g: g.eiweiss_g - t.eiweiss_g, kh_g: g.kh_g - t.kh_g, fett_g: g.fett_g - t.fett_g } : null,
-    hinweis: "In der Happa-App erscheinen die Einträge beim nächsten Öffnen oder nach dem Neuladen; dort lassen sie sich ändern oder löschen.",
+    hinweis: "In der Happa-App erscheinen die Einträge automatisch, sobald man zur App zurückkehrt; dort lassen sie sich ändern oder löschen.",
   };
 }
 
