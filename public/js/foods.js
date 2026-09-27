@@ -19,16 +19,18 @@ export function loadFoods() {
   if (!loading) {
     loading = fetch("/data/foods.json")
       .then((r) => { if (!r.ok) throw new Error("Lebensmittel-Datei nicht verfügbar"); return r.json(); })
-      .then((data) => {
-        foods = data.items.map(([name, kcal, protein, fat, carbs, fiber, sugar, group]) => ({
-          name, group, key: " " + norm(name) + " ", tight: norm(name).replace(/ /g, ""),
-          per100: { kcal, protein, fat, carbs, fiber, sugar },
-        }));
-        return foods;
-      })
+      .then((data) => (foods = prepareFoods(data)))
       .catch((err) => { loading = null; throw err; });
   }
   return loading;
+}
+
+// Auch vom Worker benutzt (Claude-Connector, Werkzeug happa_naehrwerte)
+export function prepareFoods(data) {
+  return data.items.map(([name, kcal, protein, fat, carbs, fiber, sugar, group]) => ({
+    name, group, key: " " + norm(name) + " ", tight: norm(name).replace(/ /g, ""),
+    per100: { kcal, protein, fat, carbs, fiber, sugar },
+  }));
 }
 
 function score(item, tokens) {
@@ -59,7 +61,10 @@ function score(item, tokens) {
 }
 
 export async function searchFoods(query, limit = 40) {
-  const list = await loadFoods();
+  return rankFoods(await loadFoods(), query, limit).map(asFood);
+}
+
+export function rankFoods(list, query, limit = 40) {
   const tokens = norm(query).split(" ").filter(Boolean);
   if (!tokens.length) return [];
   const hits = [];
@@ -68,7 +73,7 @@ export async function searchFoods(query, limit = 40) {
     if (s > -1) hits.push([s, item]);
   }
   hits.sort((a, b) => b[0] - a[0]);
-  return hits.slice(0, limit).map(([, item]) => asFood(item));
+  return hits.slice(0, limit).map(([, item]) => item);
 }
 
 // Einheitliches Lebensmittel-Objekt für Portion-Dialog und KI-Alternativen

@@ -6,7 +6,7 @@ import { useStore, openOverlay, closeOverlay, saveProfile, toast, currentGoals, 
 import { Sheet, Seg, NavBar, useScrolled } from "../ui.js";
 import { ACTIVITY, SEXES, PACES, plan, bmi } from "../nutrition.js";
 import { BadgesCard } from "./progress.js";
-import { CoachCard } from "../coach.js"; // TEST Happa Coach – zum Entfernen diese Zeile und <${CoachCard}/> löschen
+import { ClaudeCard } from "../claude.js";
 
 const SPLITS = [
   { id: "balanced", name: "Ausgewogen", split: { carbs: 50, protein: 20, fat: 30 }, desc: "Empfehlung der DGE" },
@@ -79,7 +79,7 @@ export function ProfileView() {
             </section>
           </div>
 
-          <${CoachCard}/>
+          <${ClaudeCard}/>
 
           <div>
             <div class="section-title">Daten</div>

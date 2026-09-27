@@ -8,13 +8,15 @@
 // - happa-mcp.auer.page selbst hat keine Access-Anmeldung, bietet aber nur die OAuth-Schnittstellen
 //   (Metadaten, Token, Registrierung) und /mcp, das ohne gültiges Token nichts herausgibt.
 // - Werkzeuge: Zusammenfassung (Profil, Ziele, Tagebuch, Gewicht), ein Tag, Gewichtsverlauf,
-//   Eintragen (nur hinzufügen – ändern oder löschen kann Claude nichts; braucht die Berechtigung happa:write).
+//   Nährwertsuche im Bundeslebensmittelschlüssel, Eintragen (nur hinzufügen – ändern oder löschen
+//   kann Claude nichts; braucht die Berechtigung happa:write). Dazu Vorlagen (MCP-Prompts).
 // Entfernen: diese Datei löschen, in worker/index.js den Connector-Block zurückbauen,
 // in wrangler.toml die zweite Route und den KV-Speicher streichen.
 
 import { AuthorizationError, CimdFetchError } from "@cloudflare/workers-oauth-provider";
 import { authenticate } from "./auth.js";
 import { goals, MEALS, ACTIVITY, foodEmoji } from "../public/js/nutrition.js";
+import { prepareFoods, rankFoods } from "../public/js/foods.js";
 
 export const MCP_HOST = "happa-mcp.auer.page";
 export const MCP_RESOURCE = `https://${MCP_HOST}/mcp`;
@@ -138,6 +140,50 @@ const TOOLS = [
     annotations: { title: "Happa: Gewichtsverlauf", readOnlyHint: true, openWorldHint: false },
   },
 ];
+
+// ── Nährwerte aus dem BLS 4.0 (dieselbe Datei und Suche wie in der App) ──
+let foodsCache = null;
+async function foods(env) {
+  if (!foodsCache) {
+    const res = await env.ASSETS.fetch(new Request("https://happa.auer.page/data/foods.json"));
+    if (!res.ok) throw new Error("foods.json nicht verfügbar: " + res.status);
+    foodsCache = prepareFoods(await res.json());
+  }
+  return foodsCache;
+}
+
+TOOLS.push({
+  name: "happa_naehrwerte",
+  title: "Happa: Nährwerte suchen",
+  description: "Sucht Lebensmittel im Bundeslebensmittelschlüssel (BLS 4.0, Max Rubner-Institut, 7.140 Lebensmittel) und liefert Nährwerte pro 100 g: kcal, Eiweiß, Kohlenhydrate, Fett, Ballaststoffe, Zucker. Für genaue Kalorien bei Rezepten und Fotos: je Zutat einen deutschen Suchbegriff angeben (z. B. „Ei gekocht“, „Gouda“, „Reis gekocht“, „Olivenöl“) und dann mit der geschätzten Menge umrechnen. Bis zu 12 Suchbegriffe pro Aufruf.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      suche: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 12, description: "Deutsche Suchbegriffe, einer pro Zutat" },
+      treffer: { type: "integer", minimum: 1, maximum: 8, description: "Treffer pro Suchbegriff (Standard 3)" },
+    },
+    required: ["suche"],
+    additionalProperties: false,
+  },
+  annotations: { title: "Happa: Nährwerte suchen", readOnlyHint: true, openWorldHint: false },
+});
+
+async function toolFoods(env, email, args) {
+  const list = await foods(env);
+  const queries = (Array.isArray(args.suche) ? args.suche : [args.suche]).map((q) => String(q || "").trim().slice(0, 60)).filter(Boolean).slice(0, 12);
+  if (!queries.length) throw new ToolError("Bitte mindestens einen Suchbegriff angeben.");
+  const n = intArg(args.treffer, 3, 1, 8);
+  return {
+    quelle: "Bundeslebensmittelschlüssel (BLS) 4.0, Max Rubner-Institut, CC BY 4.0 – Werte pro 100 g essbarer Anteil",
+    ergebnisse: queries.map((q) => ({
+      suche: q,
+      treffer: rankFoods(list, q, n).map((f) => ({
+        name: f.name, kcal: f.per100.kcal, eiweiss_g: f.per100.protein, kh_g: f.per100.carbs,
+        fett_g: f.per100.fat, ballaststoffe_g: f.per100.fiber, zucker_g: f.per100.sugar,
+      })),
+    })),
+  };
+}
 
 const MEAL_IDS = { fruehstueck: 0, "frühstück": 0, mittagessen: 1, abendessen: 2, snack: 3, snacks: 3 };
 
@@ -281,7 +327,47 @@ async function toolWeight(env, email, args) {
   };
 }
 
-const HANDLERS = { happa_zusammenfassung: toolSummary, happa_tag: toolDay, happa_gewicht: toolWeight, happa_eintragen: toolAdd };
+// ── Vorlagen (MCP-Prompts): fertige Aufträge, die Claude im Menü anbieten kann ──
+const PROMPTS = [
+  {
+    name: "rezept_aus_kuehlschrank",
+    title: "Rezept aus dem Kühlschrank",
+    description: "Foto vom Kühlschrank oder eine Zutatenliste → Rezepte, die ins Restbudget von heute passen, mit echten Nährwerten.",
+    arguments: [
+      { name: "mahlzeit", description: "Frühstück, Mittagessen, Abendessen oder Snack", required: false },
+      { name: "zutaten", description: "Zutaten als Text, falls kein Foto", required: false },
+    ],
+    text: (a) => `Ich möchte etwas kochen${a.mahlzeit ? ` (${a.mahlzeit})` : ""}. ${a.zutaten ? `Diese Zutaten habe ich: ${a.zutaten}.` : "Ich schicke dir ein Foto von meinem Kühlschrank oder meinen Zutaten."}
+So gehst du vor:
+1. Hol mit happa_tag mein Restbudget für heute.
+2. Erkenne die Zutaten und schlage 2 einfache Rezepte vor (höchstens 30 Minuten), die hineinpassen. Vorräte wie Öl, Salz und Gewürze darf ich haben.
+3. Rechne die Nährwerte mit happa_naehrwerte aus echten Werten pro 100 g aus. Zeige je Rezept eine kurze Tabelle mit Gramm, kcal, Eiweiß, Kohlenhydraten und Fett und die Summe.
+4. Frag mich, ob du eins mit happa_eintragen eintragen sollst.`,
+  },
+  {
+    name: "mahlzeit_eintragen",
+    title: "Mahlzeit schätzen und eintragen",
+    description: "Foto oder Beschreibung einer Mahlzeit → Mengen schätzen, mit echten Nährwerten rechnen, nach Bestätigung in Happa eintragen.",
+    arguments: [
+      { name: "mahlzeit", description: "Frühstück, Mittagessen, Abendessen oder Snack", required: false },
+      { name: "beschreibung", description: "Was du gegessen hast, falls kein Foto", required: false },
+    ],
+    text: (a) => `${a.beschreibung ? `Ich habe gegessen: ${a.beschreibung}.` : "Ich schicke dir ein Foto meiner Mahlzeit."}
+1. Bestimme die Bestandteile und schätze die Mengen in Gramm (denk an Öl, Butter und Soßen).
+2. Hol die Nährwerte pro 100 g mit happa_naehrwerte und rechne sie auf die Mengen um.
+3. Zeige eine kurze Tabelle mit Summe und frag, ob du sie ${a.mahlzeit ? `als ${a.mahlzeit}` : "zur passenden Mahlzeit"} mit happa_eintragen eintragen sollst.
+4. Sag mir danach mit den Werten aus der Antwort, was heute noch übrig ist.`,
+  },
+  {
+    name: "wochenrueckblick",
+    title: "Wochenrückblick",
+    description: "Was lief gut, woher die Kalorien kommen, Muster und zwei kleine Schritte für nächste Woche.",
+    arguments: [],
+    text: () => `Hol mit happa_zusammenfassung meine letzten 28 Tage und schreib mir einen kurzen Wochenrückblick über die letzten 7 Tage im Vergleich zu davor: Das lief gut · Woher die Kalorien kommen · Muster (mit Zahlen, z. B. Wochenende, abends) · 2 kleine, machbare Schritte für nächste Woche. Höchstens 250 Wörter, freundlich und ohne Moralpredigt.`,
+  },
+];
+
+const HANDLERS = { happa_zusammenfassung: toolSummary, happa_tag: toolDay, happa_gewicht: toolWeight, happa_naehrwerte: toolFoods, happa_eintragen: toolAdd };
 
 // ── MCP über HTTP (JSON-RPC 2.0, zustandslos, Antwort als JSON) ──
 const rpcResult = (id, result) => ({ jsonrpc: "2.0", id, result });
@@ -297,9 +383,9 @@ async function handleRpc(msg, env, email, scopes) {
       const asked = params.protocolVersion;
       out = rpcResult(msg.id, {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : FALLBACK_VERSION,
-        capabilities: { tools: { listChanged: false } },
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo: { name: "happa", title: "Happa", version: "0.1.0" },
-        instructions: "Happa ist eine Kalorien- und Abnehm-App. Die Werkzeuge gelten nur für die angemeldete Person. Antworte auf Deutsch. Kalorienwerte sind Schätzungen; empfiehl nie weniger als 1.200 kcal (Frauen) bzw. 1.500 kcal (Männer) pro Tag. happa_eintragen nur verwenden, wenn die Person ausdrücklich eintragen möchte; nenne vorher kurz, was eingetragen wird.",
+        instructions: "Happa ist eine Kalorien- und Abnehm-App. Die Werkzeuge gelten nur für die angemeldete Person. Antworte auf Deutsch. Kalorienwerte sind Schätzungen; empfiehl nie weniger als 1.200 kcal (Frauen) bzw. 1.500 kcal (Männer) pro Tag. Für Kalorienangaben zu Fotos, Rezepten und Mahlzeiten die Werte pro 100 g mit happa_naehrwerte holen und auf die geschätzte Menge umrechnen, statt frei zu schätzen. happa_eintragen nur verwenden, wenn die Person ausdrücklich eintragen möchte; nenne vorher kurz, was eingetragen wird.",
       });
       break;
     }
@@ -318,7 +404,16 @@ async function handleRpc(msg, env, email, scopes) {
       break;
     }
     case "resources/list": out = rpcResult(msg.id, { resources: [] }); break;
-    case "prompts/list": out = rpcResult(msg.id, { prompts: [] }); break;
+    case "prompts/list":
+      out = rpcResult(msg.id, { prompts: PROMPTS.map(({ name, title, description, arguments: args }) => ({ name, title, description, arguments: args })) });
+      break;
+    case "prompts/get": {
+      const pr = PROMPTS.find((x) => x.name === params.name);
+      if (!pr) { out = rpcError(msg.id, -32602, `Unbekannte Vorlage: ${params.name}`); break; }
+      const a = Object.fromEntries(Object.entries(params.arguments || {}).map(([k, v]) => [k, String(v).slice(0, 300)]));
+      out = rpcResult(msg.id, { description: pr.description, messages: [{ role: "user", content: { type: "text", text: pr.text(a) } }] });
+      break;
+    }
     default:
       if (msg.method.startsWith("notifications/")) return null;
       out = rpcError(msg.id, -32601, `Methode nicht unterstützt: ${msg.method}`);

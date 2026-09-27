@@ -117,11 +117,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.primary:hover { filter: brightness(1.06); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.block { width: 100%; justify-content: center; }
-.btn.danger { color: var(--danger); }
-.btn.danger-fill { background: var(--danger); color: #fff; }
-.confirm { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--fill); display: flex; flex-direction: column; gap: 10px; }
-.confirm p { margin: 0; font-size: 15px; }
-.paste { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+
 textarea, input[type=text], select { width: 100%; border: 1px solid var(--sep); background: var(--fill); border-radius: 14px; padding: 12px 14px; font-size: 16px; }
 textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
 .error { color: var(--danger); font-size: 14px; margin: 0; }
@@ -138,7 +134,7 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
 @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 
 /* Tabs */
-.seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--fill); border-radius: 99px; padding: 3px; gap: 2px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--fill); border-radius: 99px; padding: 3px; gap: 2px; }
 .seg button { border: 0; background: transparent; border-radius: 99px; padding: 9px 4px; font-weight: 600; font-size: 15px; cursor: pointer; color: var(--text-2); }
 .seg button[aria-selected="true"] { background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, .1); }
 .panel { display: flex; flex-direction: column; gap: 14px; }
@@ -187,19 +183,11 @@ textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMon
 .recipe ul, .recipe ol { margin: 6px 0 0; padding-left: 22px; }
 .recipe li { margin: 3px 0; }
 
-/* Foto */
-.drop { border: 2px dashed var(--fill-2); border-radius: 18px; padding: 22px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.drop .big { font-size: 34px; line-height: 1; }
-.preview { width: 100%; max-height: 320px; object-fit: cover; border-radius: 16px; display: block; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
-th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--sep); white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; white-space: normal; }
-th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); font-weight: 600; }
-tfoot td { font-weight: 700; border-bottom: 0; }
-.conf { font-size: 12px; color: var(--text-3); }
 .note { font-size: 14px; background: var(--warn-bg); color: var(--warn-text); border-radius: 14px; padding: 10px 14px; margin: 0; }
+
+.connect { margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: var(--accent-soft); font-size: 15px; }
+.connect ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.connect code { font-size: 13px; overflow-wrap: anywhere; }
 
 .foot { font-size: 13px; color: var(--text-3); text-align: center; margin: 4px 0 0; }
 
@@ -224,29 +212,18 @@ tfoot td { font-weight: 700; border-bottom: 0; }
         <div id="src-meta" class="muted small">So sieht der Coach mit Daten aus.</div>
       </div>
       <div class="actions">
-        <button class="btn primary" id="btn-happa" type="button" hidden>Aus Happa laden</button>
-        <button class="btn" id="btn-paste" type="button">Daten einfügen</button>
-        <button class="btn" id="btn-file" type="button">Export-Datei</button>
-        <button class="btn danger" id="btn-reset" type="button" hidden>Alle Daten löschen</button>
+        <button class="btn primary" id="btn-happa" type="button" hidden>Aktualisieren</button>
       </div>
     </div>
     <p class="note" id="happa-note" style="margin-top:12px" hidden></p>
-    <div class="confirm" id="reset-box" role="alertdialog" aria-labelledby="reset-q" hidden>
-      <p id="reset-q"><b>Alle Daten löschen?</b> Die eingefügten Happa-Daten, der Chat und die Antworten verschwinden von diesem Gerät. In Happa selbst bleibt alles erhalten.</p>
-      <div class="actions">
-        <button class="btn danger-fill" id="btn-reset-yes" type="button">Löschen</button>
-        <button class="btn" id="btn-reset-no" type="button">Abbrechen</button>
-      </div>
-    </div>
-    <input type="file" id="file-json" accept="application/json,.json" hidden>
-    <div class="paste" id="paste-box" hidden>
-      <p class="muted small" style="margin:0">Ohne Connector: in Happa <b>Profil → Happa Coach (Test) → Daten kopieren</b>, dann hier einfügen.</p>
-      <textarea id="paste-text" placeholder="Hier einfügen …" aria-label="Kopierte Happa-Daten"></textarea>
-      <p class="error" id="paste-error" hidden></p>
-      <div class="actions">
-        <button class="btn primary" id="btn-load" type="button">Übernehmen</button>
-        <button class="btn" id="btn-cancel" type="button">Abbrechen</button>
-      </div>
+    <div class="connect" id="connect-box" hidden>
+      <p style="margin:0 0 8px"><b>So kommen deine Daten in den Coach:</b> Verbinde Happa einmal mit Claude.</p>
+      <ol>
+        <li>Claude → Einstellungen → Connectors → <b>Benutzerdefinierten Connector hinzufügen</b></li>
+        <li>Name <b>Happa</b>, URL <code>https://happa-mcp.auer.page/mcp</code></li>
+        <li>Mit der Happa-E-Mail anmelden und <b>Erlauben</b> tippen</li>
+        <li>Bei den Tool-Berechtigungen „Schreibgeschützte Tools“ auf <b>Immer erlauben</b> stellen, dann hier <b>Aktualisieren</b></li>
+      </ol>
     </div>
   </section>
 
@@ -256,7 +233,6 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     <button role="tab" id="tab-review" aria-controls="p-review" aria-selected="true">Rückblick</button>
     <button role="tab" id="tab-chat" aria-controls="p-chat" aria-selected="false">Chat</button>
     <button role="tab" id="tab-recipes" aria-controls="p-recipes" aria-selected="false">Rezepte</button>
-    <button role="tab" id="tab-photo" aria-controls="p-photo" aria-selected="false">Foto</button>
   </div>
 
   <section class="card panel" id="p-review" role="tabpanel" aria-labelledby="tab-review">
@@ -298,36 +274,6 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     <div id="recipes-out" class="recipes" aria-live="polite"></div>
   </section>
 
-  <section class="card panel" id="p-photo" role="tabpanel" aria-labelledby="tab-photo" hidden>
-    <p class="intro">Zweite Meinung für schwierige Gerichte. Das Foto geht nur an Claude und wird nicht gespeichert. Eintragen musst du das Ergebnis weiterhin in Happa.</p>
-    <div id="photo-unavailable" class="panel" hidden>
-      <p class="note">Hier im Coach kann Claude keine Fotos empfangen. Im normalen Claude-Chat geht es, und dort kennt Claude über den Happa-Connector auch deinen Tag.</p>
-      <ol class="small" style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">
-        <li>Neuen Chat in Claude öffnen und das Foto aufnehmen oder anhängen.</li>
-        <li>Diesen Text dazu einfügen und senden:</li>
-      </ol>
-      <textarea id="photo-prompt" readonly aria-label="Text für den Claude-Chat" style="min-height:120px;font-family:var(--font);font-size:15px">Schätze die Bestandteile dieser Mahlzeit mit Gramm, kcal, Eiweiß, Kohlenhydraten und Fett (denk an Öl, Butter und Soßen) und gib mir eine kurze Tabelle. Schau dann mit dem Happa-Connector (happa_tag), wie viel ich heute schon gegessen habe und was danach noch übrig bleibt.</textarea>
-      <div class="actions"><button class="btn primary" id="btn-copy-prompt" type="button">Text kopieren</button></div>
-    </div>
-    <div id="photo-ui">
-      <label class="drop" id="drop" for="photo-file">
-        <span class="big" aria-hidden="true">📷</span>
-        <b>Foto wählen</b>
-        <span class="muted small">Aus der Galerie, oder direkt mit der Kamera, wenn dein Gerät das anbietet</span>
-      </label>
-      <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" hidden>
-    </div>
-    <img id="photo-preview" class="preview" alt="Ausgewähltes Foto" hidden>
-    <div id="photo-form" hidden>
-      <label class="field-label" for="photo-hint">Hinweis (optional)</label>
-      <input type="text" id="photo-hint" placeholder="z. B. mit Sahnesoße, halbe Portion …">
-    </div>
-    <div class="actions" id="photo-actions" hidden>
-      <button class="btn primary" id="btn-photo" type="button">Schätzen lassen</button>
-      <button class="btn" id="btn-photo-new" type="button">Anderes Foto</button>
-    </div>
-    <div id="photo-out" aria-live="polite"></div>
-  </section>
 
   <p class="foot">Test-Version · nutzt dein Claude-Kontingent · ersetzt keine ärztliche Beratung</p>
 </div>
@@ -417,14 +363,6 @@ tfoot td { font-weight: 700; border-bottom: 0; }
       goals: raw.goals || (p.kcalGoal ? { kcal: p.kcalGoal } : null),
       days, weights,
     };
-  }
-  function parseInput(text) {
-    const t = text.trim();
-    const start = t.indexOf("{"), end = t.lastIndexOf("}");
-    if (start < 0 || end < start) throw new Error("Im eingefügten Text sind keine Happa-Daten.");
-    let raw;
-    try { raw = JSON.parse(t.slice(start, end + 1)); } catch { throw new Error("Die Daten sind unvollständig. Bitte in Happa noch einmal kopieren und ganz einfügen."); }
-    return normalize(raw);
   }
 
   // ── Auswertung (im Browser, damit Claude mit festen Zahlen arbeitet) ──
@@ -549,14 +487,8 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
   const samplePromise = window.claude && typeof window.claude.use === "function" ? window.claude.use("sample") : Promise.resolve(null);
   let sample = null;
 
-  function loadSaved() {
-    const raw = store.get("happa-coach-data");
-    if (raw) { try { return normalize(JSON.parse(raw)); } catch { store.del("happa-coach-data"); } }
-    return exampleData();
-  }
-  function setData(d, rawToSave) {
+  function setData(d) {
     data = d; A = analyze(d);
-    if (rawToSave) store.set("happa-coach-data", rawToSave); else if (d.example) store.del("happa-coach-data");
     chat.length = 0; renderChat();
     $("review-out").innerHTML = ""; $("recipes-out").innerHTML = "";
     renderSource(); renderStats(); renderBudget();
@@ -570,9 +502,8 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
     const withLog = data.days.filter((x) => x.log.length);
     const created = new Date(data.created);
     $("src-meta").textContent = data.example
-      ? "So sieht der Coach mit Daten aus. Lade deine eigenen Daten aus Happa."
+      ? "So sieht der Coach mit Daten aus."
       : `${withLog.length} Tage mit Einträgen · Stand ${created.toLocaleDateString("de-DE")} um ${created.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
-    $("btn-reset").hidden = data.example;
   }
 
   function stat(v, unit, k, delta) {
@@ -605,7 +536,7 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
   }
 
   // ── Tabs ──
-  const TABS = ["review", "chat", "recipes", "photo"];
+  const TABS = ["review", "chat", "recipes"];
   function showTab(name) {
     for (const t of TABS) {
       $("tab-" + t).setAttribute("aria-selected", String(t === name));
@@ -624,38 +555,6 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
     });
   });
 
-  // ── Daten einfügen ──
-  $("btn-paste").addEventListener("click", () => { $("paste-box").hidden = false; $("paste-error").hidden = true; $("paste-text").focus(); });
-  $("btn-cancel").addEventListener("click", () => { $("paste-box").hidden = true; $("paste-text").value = ""; });
-  $("btn-load").addEventListener("click", () => {
-    const text = $("paste-text").value;
-    try {
-      const d = parseInput(text);
-      setData(d, text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
-      $("paste-box").hidden = true; $("paste-text").value = "";
-    } catch (e) { $("paste-error").textContent = e.message; $("paste-error").hidden = false; }
-  });
-  $("btn-file").addEventListener("click", () => $("file-json").click());
-  $("file-json").addEventListener("change", async (e) => {
-    const file = e.target.files[0]; e.target.value = "";
-    if (!file) return;
-    try { const text = await file.text(); setData(parseInput(text), text); }
-    catch (err) { $("paste-box").hidden = false; $("paste-error").textContent = err.message; $("paste-error").hidden = false; }
-  });
-  $("btn-reset").addEventListener("click", () => { $("reset-box").hidden = false; $("paste-box").hidden = true; $("btn-reset-no").focus(); });
-  $("btn-reset-no").addEventListener("click", () => { $("reset-box").hidden = true; $("btn-reset").focus(); });
-  $("btn-reset-yes").addEventListener("click", () => {
-    for (const k of ["happa-coach-data", "happa-coach-tab"]) store.del(k);
-    $("paste-text").value = ""; $("chat-input").value = ""; $("r-wish").value = "";
-    $("btn-review").textContent = "Rückblick erstellen";
-    $("btn-photo-new").click();
-    if (!$("photo-unavailable").hidden) $("photo-ui").hidden = true;
-    setData(exampleData());
-    $("reset-box").hidden = true;
-    showTab("review");
-    $("src-meta").textContent = "Alle Daten gelöscht. Jetzt können die nächsten ihre eigenen Happa-Daten einfügen.";
-    $("btn-paste").focus();
-  });
 
   // ── Direkt aus Happa laden (Claude-Connector „Happa“) ──
   const HAPPA = "Happa";
@@ -687,15 +586,15 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
       const raw = res && (res.payload ?? res.structuredContent);
       const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
       const d = normalize(obj);
-      setData(d, JSON.stringify(obj));
-      $("paste-box").hidden = true;
-      happaNote("");
+      setData(d);
+      happaNote(""); $("connect-box").hidden = true;
     } catch (e) {
       const msg = e && e.code ? mcpErrorText(e) : (e && e.message) || "Die Daten konnten nicht gelesen werden.";
       // Beim automatischen Laden nur Hinweise zeigen, die weiterhelfen
-      if (msg && !(silent && e && e.code === "not_in_manifest")) happaNote(msg);
+      if (e && (e.code === "server_not_connected" || e.code === "server_not_found")) { $("connect-box").hidden = false; happaNote(""); }
+      else if (msg && !(silent && e && e.code === "not_in_manifest")) happaNote(msg);
     } finally {
-      happaBusy = false; btn.disabled = false; btn.textContent = "Aus Happa laden";
+      happaBusy = false; btn.disabled = false; btn.textContent = "Aktualisieren";
     }
   }
   $("btn-happa").addEventListener("click", () => loadFromHappa(false));
@@ -804,79 +703,21 @@ ${contextText(data, A).split("Tagebuch")[1] || ""}`.slice(0, 60000);
     } finally { btn.disabled = false; }
   });
 
-  // ── Foto ──
-  let photo = null, photoURL = null;
-  function setPhoto(file) {
-    if (!file) return;
-    photo = file;
-    if (photoURL) URL.revokeObjectURL(photoURL);
-    photoURL = URL.createObjectURL(file);
-    $("photo-preview").src = photoURL; $("photo-preview").hidden = false;
-    $("photo-ui").hidden = true; $("photo-form").hidden = false; $("photo-actions").hidden = false;
-    $("photo-out").innerHTML = "";
-  }
-  $("photo-file").addEventListener("change", (e) => { setPhoto(e.target.files[0]); e.target.value = ""; });
-  const drop = $("drop");
-  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
-  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); setPhoto(e.dataTransfer.files[0]); });
-  drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("photo-file").click(); } });
-  drop.tabIndex = 0;
-  $("btn-photo-new").addEventListener("click", () => {
-    photo = null; $("photo-preview").hidden = true; $("photo-ui").hidden = false;
-    $("photo-form").hidden = true; $("photo-actions").hidden = true; $("photo-out").innerHTML = ""; $("photo-hint").value = "";
-  });
-  $("btn-photo").addEventListener("click", async () => {
-    if (!sample || !photo) return;
-    const out = $("photo-out"), btn = $("btn-photo");
-    btn.disabled = true;
-    out.innerHTML = thinking("Claude schaut sich das Foto an");
-    const hint = $("photo-hint").value.trim().slice(0, 300);
-    const prompt = `Du bist Ernährungsexperte. Auf dem Foto ist eine Mahlzeit. Bestimme alle sichtbaren Bestandteile, schätze die Menge in Gramm anhand von Teller, Besteck und typischen Portionsgrößen und berechne die Nährwerte (deutsche Nährwerttabellen als Maßstab). Denke an versteckte Kalorien wie Öl, Butter, Soßen und Dressing.
-${hint ? `Hinweis der Person: ${hint}` : ""}
-Antworte NUR mit JSON:
-{"dish":"Name des Gerichts","items":[{"name":"Spaghetti gekocht","grams":250,"kcal":390,"protein":13,"carbs":77,"fat":2,"confidence":"hoch|mittel|niedrig"}],"notes":"ein Satz: was unsicher ist und worauf man achten sollte"}
-Wenn kein Essen zu sehen ist: {"dish":"","items":[],"notes":"Kein Essen erkannt."}`;
-    try {
-      const r = await sample.json(prompt, { images: photo, cache: false });
-      const items = Array.isArray(r && r.items) ? r.items : [];
-      if (!items.length) { out.innerHTML = `<p class="note">${esc(String((r && r.notes) || "Auf dem Foto wurde kein Essen erkannt."))}</p>`; return; }
-      const sum = items.reduce((t, x) => ({ g: t.g + (+x.grams || 0), k: t.k + (+x.kcal || 0), p: t.p + (+x.protein || 0), c: t.c + (+x.carbs || 0), f: t.f + (+x.fat || 0) }), { g: 0, k: 0, p: 0, c: 0, f: 0 });
-      out.innerHTML = `
-        <h3 style="font-size:19px;margin:4px 0 10px">${esc(String(r.dish || "Mahlzeit"))}</h3>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Bestandteil</th><th>g</th><th>kcal</th><th>E</th><th>KH</th><th>F</th></tr></thead>
-          <tbody>${items.map((x) => `<tr><td>${esc(String(x.name))}${x.confidence ? ` <span class="conf">${esc(String(x.confidence))}</span>` : ""}</td><td>${n0(x.grams)}</td><td>${n0(x.kcal)}</td><td>${n0(x.protein)}</td><td>${n0(x.carbs)}</td><td>${n0(x.fat)}</td></tr>`).join("")}</tbody>
-          <tfoot><tr><td>Summe</td><td>${n0(sum.g)}</td><td>${n0(sum.k)}</td><td>${n0(sum.p)}</td><td>${n0(sum.c)}</td><td>${n0(sum.f)}</td></tr></tfoot>
-        </table></div>
-        ${r.notes ? `<p class="muted small" style="margin:10px 0 0">${esc(String(r.notes))}</p>` : ""}
-        <p class="muted small" style="margin:8px 0 0">Vergleiche mit der Happa-Erkennung und passe dort die Mengen an.</p>`;
-    } catch (e) {
-      out.innerHTML = `<p class="error">${esc(errorText(e) || "Abgebrochen.")}</p>`;
-    } finally { btn.disabled = false; }
-  });
-
-  $("btn-copy-prompt").addEventListener("click", async () => {
-    const box = $("photo-prompt"), btn = $("btn-copy-prompt");
-    try { await navigator.clipboard.writeText(box.value); btn.textContent = "Kopiert"; }
-    catch { box.focus(); box.select(); btn.textContent = "Markiert – jetzt kopieren"; }
-    setTimeout(() => { btn.textContent = "Text kopieren"; }, 2500);
-  });
-
   // ── Start ──
-  setData(loadSaved());
+  store.del("happa-coach-data"); // alte, eingefügte Daten aus der Test-Version
+  setData(exampleData());
   const savedTab = store.get("happa-coach-tab");
   showTab(TABS.includes(savedTab) ? savedTab : "review");
 
   const mcpPromise = window.claude && typeof window.claude.use === "function" ? window.claude.use("mcp") : Promise.resolve(null);
   mcpPromise.then((m) => {
     mcp = m;
-    if (!m) return;
+    if (!m) { $("connect-box").hidden = false; return; }
     $("btn-happa").hidden = false;
     loadFromHappa(true);
   }).catch(() => {});
 
-  const aiButtons = ["btn-review", "btn-send", "btn-recipes", "btn-photo"];
+  const aiButtons = ["btn-review", "btn-send", "btn-recipes"];
   aiButtons.forEach((id) => { $(id).disabled = true; });
   samplePromise.then(async (s) => {
     sample = s;
@@ -886,9 +727,6 @@ Wenn kein Essen zu sehen ist: {"dish":"","items":[],"notes":"Kein Essen erkannt.
       return;
     }
     aiButtons.forEach((id) => { $(id).disabled = false; });
-    const caps = await s.limits().catch(() => null);
-    if (!caps || !caps.images) { $("photo-unavailable").hidden = false; $("photo-ui").hidden = true; }
-    else if (caps.images.mediaTypes && caps.images.mediaTypes.length) $("photo-file").accept = caps.images.mediaTypes.join(",");
   });
 })();
 </script>
