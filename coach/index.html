@@ -117,6 +117,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.primary:hover { filter: brightness(1.06); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.block { width: 100%; justify-content: center; }
+.btn.danger { color: var(--danger); }
+.btn.danger-fill { background: var(--danger); color: #fff; }
+.confirm { margin-top: 14px; padding: 14px; border-radius: 16px; background: var(--fill); display: flex; flex-direction: column; gap: 10px; }
+.confirm p { margin: 0; font-size: 15px; }
 .paste { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 textarea, input[type=text], select { width: 100%; border: 1px solid var(--sep); background: var(--fill); border-radius: 14px; padding: 12px 14px; font-size: 16px; }
 textarea { min-height: 110px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
@@ -222,7 +226,14 @@ tfoot td { font-weight: 700; border-bottom: 0; }
       <div class="actions">
         <button class="btn primary" id="btn-paste" type="button">Daten einfügen</button>
         <button class="btn" id="btn-file" type="button">Export-Datei</button>
-        <button class="btn" id="btn-reset" type="button" hidden>Beispiel zeigen</button>
+        <button class="btn danger" id="btn-reset" type="button" hidden>Alle Daten löschen</button>
+      </div>
+    </div>
+    <div class="confirm" id="reset-box" role="alertdialog" aria-labelledby="reset-q" hidden>
+      <p id="reset-q"><b>Alle Daten löschen?</b> Die eingefügten Happa-Daten, der Chat und die Antworten verschwinden von diesem Gerät. In Happa selbst bleibt alles erhalten.</p>
+      <div class="actions">
+        <button class="btn danger-fill" id="btn-reset-yes" type="button">Löschen</button>
+        <button class="btn" id="btn-reset-no" type="button">Abbrechen</button>
       </div>
     </div>
     <input type="file" id="file-json" accept="application/json,.json" hidden>
@@ -621,7 +632,20 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
     try { const text = await file.text(); setData(parseInput(text), text); }
     catch (err) { $("paste-box").hidden = false; $("paste-error").textContent = err.message; $("paste-error").hidden = false; }
   });
-  $("btn-reset").addEventListener("click", () => setData(exampleData()));
+  $("btn-reset").addEventListener("click", () => { $("reset-box").hidden = false; $("paste-box").hidden = true; $("btn-reset-no").focus(); });
+  $("btn-reset-no").addEventListener("click", () => { $("reset-box").hidden = true; $("btn-reset").focus(); });
+  $("btn-reset-yes").addEventListener("click", () => {
+    for (const k of ["happa-coach-data", "happa-coach-tab"]) store.del(k);
+    $("paste-text").value = ""; $("chat-input").value = ""; $("r-wish").value = "";
+    $("btn-review").textContent = "Rückblick erstellen";
+    $("btn-photo-new").click();
+    if (!$("photo-unavailable").hidden) $("photo-ui").hidden = true;
+    setData(exampleData());
+    $("reset-box").hidden = true;
+    showTab("review");
+    $("src-meta").textContent = "Alle Daten gelöscht. Jetzt können die nächsten ihre eigenen Happa-Daten einfügen.";
+    $("btn-paste").focus();
+  });
 
   // ── Rückblick ──
   let reviewCtl = null;
