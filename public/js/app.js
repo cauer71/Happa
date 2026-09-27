@@ -11,6 +11,11 @@ import { ProfileView } from "./views/profile.js";
 import { Onboarding } from "./views/onboarding.js";
 import { openCamera } from "./views/camera.js";
 
+// Safari (iPhone) ignoriert „user-scalable=no“: Zoomgesten hier abfangen
+for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+
 const TABS = [
   { id: "heute", label: "Heute", icon: Icon.today },
   { id: "fortschritt", label: "Fortschritt", icon: Icon.chart },
