@@ -1,4 +1,4 @@
-// TEST „Happa-Connector“ für Claude (MCP-Server, nur lesend).
+// TEST „Happa-Connector“ für Claude (MCP-Server: lesen und neue Einträge hinzufügen).
 //
 // Adresse: https://happa-mcp.auer.page/mcp – in Claude unter Einstellungen → Connectors eintragen.
 // - Anmeldung: OAuth 2.1 (Bibliothek @cloudflare/workers-oauth-provider, Tokens in KV).
@@ -7,17 +7,20 @@
 //   Lesezugriff auf das eigene Happa-Profil – nie auf fremde.
 // - happa-mcp.auer.page selbst hat keine Access-Anmeldung, bietet aber nur die OAuth-Schnittstellen
 //   (Metadaten, Token, Registrierung) und /mcp, das ohne gültiges Token nichts herausgibt.
-// - Werkzeuge: Zusammenfassung (Profil, Ziele, Tagebuch, Gewicht), ein Tag, Gewichtsverlauf.
+// - Werkzeuge: Zusammenfassung (Profil, Ziele, Tagebuch, Gewicht), ein Tag, Gewichtsverlauf,
+//   Eintragen (nur hinzufügen – ändern oder löschen kann Claude nichts; braucht die Berechtigung happa:write).
 // Entfernen: diese Datei löschen, in worker/index.js den Connector-Block zurückbauen,
 // in wrangler.toml die zweite Route und den KV-Speicher streichen.
 
 import { AuthorizationError, CimdFetchError } from "@cloudflare/workers-oauth-provider";
 import { authenticate } from "./auth.js";
-import { goals, MEALS, ACTIVITY } from "../public/js/nutrition.js";
+import { goals, MEALS, ACTIVITY, foodEmoji } from "../public/js/nutrition.js";
 
 export const MCP_HOST = "happa-mcp.auer.page";
 export const MCP_RESOURCE = `https://${MCP_HOST}/mcp`;
 export const MCP_SCOPE = "happa:read";
+export const MCP_WRITE_SCOPE = "happa:write";
+export const MCP_SCOPES = [MCP_SCOPE, MCP_WRITE_SCOPE];
 export const CONNECT_URL = "https://happa.auer.page/connect";
 
 // Tokens gehen nur an Claude zurück (claude.ai / claude.com), an keine andere Adresse.
@@ -136,6 +139,83 @@ const TOOLS = [
   },
 ];
 
+const MEAL_IDS = { fruehstueck: 0, "frühstück": 0, mittagessen: 1, abendessen: 2, snack: 3, snacks: 3 };
+
+TOOLS.push({
+  name: "happa_eintragen",
+  title: "Happa: Eintragen",
+  description: "Trägt Lebensmittel in das Happa-Tagebuch der angemeldeten Person ein (nur hinzufügen – nichts ändern oder löschen). Nur aufrufen, wenn die Person das ausdrücklich möchte, und die Werte vorher nennen. Nährwerte gelten für die angegebene Menge (nicht pro 100 g). Höchstens 10 Einträge pro Aufruf. Antwortet mit den neuen Tagessummen und dem Restbudget.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      mahlzeit: { type: "string", enum: ["fruehstueck", "mittagessen", "abendessen", "snack"], description: "Mahlzeit, zu der eingetragen wird" },
+      datum: { type: "string", description: "Datum als JJJJ-MM-TT, leer = heute (höchstens 30 Tage zurück)" },
+      eintraege: {
+        type: "array", minItems: 1, maxItems: 10,
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Kurzer deutscher Name, z. B. „Spaghetti Bolognese“" },
+            gramm: { type: "number", description: "Menge in Gramm (bei Getränken ml)" },
+            kcal: { type: "number" },
+            eiweiss_g: { type: "number" },
+            kh_g: { type: "number", description: "Kohlenhydrate in g" },
+            fett_g: { type: "number" },
+            emoji: { type: "string", description: "Optional, ein passendes Emoji" },
+          },
+          required: ["name", "gramm", "kcal"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["mahlzeit", "eintraege"],
+    additionalProperties: false,
+  },
+  annotations: { title: "Happa: Eintragen", readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+});
+
+const num = (v, max) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : 0; };
+const newId = () => [...crypto.getRandomValues(new Uint8Array(12))].map((b) => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
+
+async function toolAdd(env, email, args, scopes) {
+  if (!scopes.includes(MCP_WRITE_SCOPE)) {
+    throw new ToolError("Zum Eintragen braucht Claude eine neue Freigabe: in Claude unter Einstellungen → Connectors → Happa auf „Trennen“ tippen und neu verbinden, dann bei Happa „Erlauben“.");
+  }
+  const meal = typeof args.mahlzeit === "number" ? args.mahlzeit : MEAL_IDS[String(args.mahlzeit || "").toLowerCase()];
+  if (![0, 1, 2, 3].includes(meal)) throw new ToolError("Mahlzeit bitte als fruehstueck, mittagessen, abendessen oder snack angeben.");
+  const today = todayLocal();
+  const d = parseDate(args.datum);
+  if (d > addDays(today, 1) || d < addDays(today, -30)) throw new ToolError("Eintragen geht nur für die letzten 30 Tage.");
+  const list = Array.isArray(args.eintraege) ? args.eintraege : [];
+  if (!list.length || list.length > 10) throw new ToolError("1 bis 10 Einträge pro Aufruf.");
+  // gleiche Grenzen wie in der App (worker/index.js → cleanEntry); Quelle „k“ = KI-Schätzung
+  const entries = list.map((e) => {
+    const name = String(e?.name || "").trim().slice(0, 80) || "Eintrag";
+    const emoji = String(e?.emoji || "").slice(0, 8) || foodEmoji(name) || "";
+    return [newId(), meal, name, r1(num(e?.gramm, 5000)), r0(num(e?.kcal, 10000)),
+      r1(num(e?.eiweiss_g, 1000)), r1(num(e?.kh_g, 1000)), r1(num(e?.fett_g, 1000)), "k", emoji];
+  });
+  const user = await loadUser(env, email);
+  const params = entries.map((e) => JSON.stringify(e));
+  const refs = params.map((_, i) => `json(?${i + 3})`);
+  const row = await env.DB.prepare(
+    `INSERT INTO days (uid, d, log) VALUES (?1, ?2, json_array(${refs.join(", ")}))
+     ON CONFLICT(uid, d) DO UPDATE SET log = json_insert(days.log, ${refs.map((r) => `'$[#]', ${r}`).join(", ")})
+     RETURNING log`
+  ).bind(user.id, d, ...params).first();
+  const log = JSON.parse(row.log || "[]");
+  const t = sum(log);
+  const g = await goalsOut(env, user.id, user.profile);
+  return {
+    eingetragen: entries.map((e) => ({ name: e[2], gramm: e[3], kcal: e[4], eiweiss_g: e[5], kh_g: e[6], fett_g: e[7] })),
+    mahlzeit: MEALS[meal].name,
+    datum: `${weekday(d)} ${iso(d)}`,
+    summe_tag: t,
+    noch_uebrig: g ? { kcal: g.kcal - t.kcal, eiweiss_g: g.eiweiss_g - t.eiweiss_g, kh_g: g.kh_g - t.kh_g, fett_g: g.fett_g - t.fett_g } : null,
+    hinweis: "In der Happa-App erscheinen die Einträge beim nächsten Öffnen oder nach dem Neuladen; dort lassen sie sich ändern oder löschen.",
+  };
+}
+
 const intArg = (v, def, min, max) => {
   if (v == null || v === "") return def;
   const n = Math.round(Number(v));
@@ -201,13 +281,13 @@ async function toolWeight(env, email, args) {
   };
 }
 
-const HANDLERS = { happa_zusammenfassung: toolSummary, happa_tag: toolDay, happa_gewicht: toolWeight };
+const HANDLERS = { happa_zusammenfassung: toolSummary, happa_tag: toolDay, happa_gewicht: toolWeight, happa_eintragen: toolAdd };
 
 // ── MCP über HTTP (JSON-RPC 2.0, zustandslos, Antwort als JSON) ──
 const rpcResult = (id, result) => ({ jsonrpc: "2.0", id, result });
 const rpcError = (id, code, message) => ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
 
-async function handleRpc(msg, env, email) {
+async function handleRpc(msg, env, email, scopes) {
   if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") return rpcError(msg?.id, -32600, "Invalid Request");
   const isNotification = msg.id === undefined;
   const params = msg.params || {};
@@ -219,7 +299,7 @@ async function handleRpc(msg, env, email) {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : FALLBACK_VERSION,
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: "happa", title: "Happa", version: "0.1.0" },
-        instructions: "Happa ist eine Kalorien- und Abnehm-App. Die Werkzeuge lesen nur die Daten der angemeldeten Person. Antworte auf Deutsch. Kalorienwerte sind Schätzungen; empfiehl nie weniger als 1.200 kcal (Frauen) bzw. 1.500 kcal (Männer) pro Tag.",
+        instructions: "Happa ist eine Kalorien- und Abnehm-App. Die Werkzeuge gelten nur für die angemeldete Person. Antworte auf Deutsch. Kalorienwerte sind Schätzungen; empfiehl nie weniger als 1.200 kcal (Frauen) bzw. 1.500 kcal (Männer) pro Tag. happa_eintragen nur verwenden, wenn die Person ausdrücklich eintragen möchte; nenne vorher kurz, was eingetragen wird.",
       });
       break;
     }
@@ -229,7 +309,7 @@ async function handleRpc(msg, env, email) {
       const fn = HANDLERS[params.name];
       if (!fn) { out = rpcError(msg.id, -32602, `Unbekanntes Werkzeug: ${params.name}`); break; }
       try {
-        const data = await fn(env, email, params.arguments || {});
+        const data = await fn(env, email, params.arguments || {}, scopes);
         out = rpcResult(msg.id, { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data, isError: false });
       } catch (err) {
         if (!(err instanceof ToolError)) console.error(err);
@@ -250,6 +330,8 @@ async function handleRpc(msg, env, email) {
 export const mcpApi = {
   async fetch(request, env, ctx) {
     const email = ctx.props?.email;
+    const scope = ctx.auth?.scope;
+    const scopes = Array.isArray(scope) ? scope : String(scope || "").split(" ").filter(Boolean);
     if (!email) return new Response("Forbidden", { status: 403 });
     if (request.method === "GET") return new Response("Method Not Allowed", { status: 405, headers: { allow: "POST" } });
     if (request.method === "DELETE") return new Response(null, { status: 204 });
@@ -258,7 +340,7 @@ export const mcpApi = {
     let body;
     try { body = await request.json(); } catch { return Response.json(rpcError(null, -32700, "Parse error"), { status: 400 }); }
     const list = Array.isArray(body) ? body.slice(0, 20) : [body];
-    const replies = (await Promise.all(list.map((m) => handleRpc(m, env, email)))).filter(Boolean);
+    const replies = (await Promise.all(list.map((m) => handleRpc(m, env, email, scopes)))).filter(Boolean);
     if (!replies.length) return new Response(null, { status: 202 });
     return Response.json(Array.isArray(body) ? replies : replies[0], { headers: { "cache-control": "no-store" } });
   },
@@ -317,14 +399,14 @@ export async function connect(request, env, oauth) {
         const denied = await oauth.denyConsent(request, handle);
         return new Response(null, { status: 302, headers: denied.headers });
       }
-      const approved = await oauth.approveConsent(request, handle, { scope: [MCP_SCOPE] });
+      const approved = await oauth.approveConsent(request, handle, { scope: MCP_SCOPES });
       if (!redirectHostAllowed(approved.request.redirectUri)) return errorPage("Diese App darf nicht auf Happa zugreifen.", 403);
       const client = await oauth.lookupClient(approved.request.clientId);
       const { redirectTo } = await oauth.completeAuthorization({
         request: approved.request,
         userId: await userKey(user.email),
         metadata: { clientName: client?.clientName || "Claude", email: user.email },
-        scope: [MCP_SCOPE],
+        scope: MCP_SCOPES,
         props: { email: user.email },
       });
       approved.headers.set("location", redirectTo);
@@ -346,14 +428,13 @@ export async function connect(request, env, oauth) {
       <h1>${name} mit Happa verbinden?</h1>
       <p class="muted" style="text-align:center">Angemeldet als <b>${esc(who)}</b></p>
       <div class="box">
-        <p style="margin:0 0 6px"><b>${name}</b> darf deine Happa-Daten <b>lesen</b>:</p>
+        <p style="margin:0 0 6px"><b>${name}</b> darf:</p>
         <ul style="margin:0">
-          <li>Profil und Tagesziele</li>
-          <li>Tagebuch mit allen Einträgen</li>
-          <li>Wasser und Gewicht</li>
+          <li>Profil, Tagesziele, Tagebuch, Wasser und Gewicht <b>lesen</b></li>
+          <li>neue Einträge ins Tagebuch <b>hinzufügen</b>, wenn du darum bittest</li>
         </ul>
       </div>
-      <p class="muted">Claude kann nichts eintragen, ändern oder löschen. Die Freigabe geht an <b>${host}</b>. Du kannst sie in Claude unter Einstellungen → Connectors jederzeit trennen.</p>
+      <p class="muted">Ändern oder löschen kann Claude nichts – das geht nur in der Happa-App. Die Freigabe geht an <b>${host}</b>. Du kannst sie in Claude unter Einstellungen → Connectors jederzeit trennen.</p>
       <form method="post">
         <input type="hidden" name="handle" value="${esc(consent.handle)}">
         <div class="row">

@@ -129,12 +129,15 @@ Die Foto-Erkennung in Happa (Cloudflare-KI) bleibt davon unberührt.
 ## Happa-Connector für Claude (Test)
 
 Claude kann die eigenen Happa-Daten direkt lesen – im normalen Chat („Wie war meine Woche in Happa?“)
-und im Happa Coach („Aus Happa laden“). Nur lesend; Claude kann nichts eintragen oder löschen.
+und im Happa Coach („Aus Happa laden“) – und auf Wunsch neue Einträge hinzufügen („Foto schätzen und als
+Mittagessen eintragen“). Ändern oder löschen kann Claude nichts; das geht nur in der App.
 
 - **Einrichten (einmal pro Person):** Claude → Einstellungen → Connectors → *Benutzerdefinierten Connector hinzufügen*,
   Name `Happa`, URL `https://happa-mcp.auer.page/mcp`. Danach mit der Happa-E-Mail anmelden und *Erlauben* tippen.
 - **Werkzeuge:** `happa_zusammenfassung` (Profil, Ziele, Tagebuch, Gewicht der letzten N Tage), `happa_tag`
-  (ein Tag mit Restbudget), `happa_gewicht` (Wiegungen).
+  (ein Tag mit Restbudget), `happa_gewicht` (Wiegungen) – lesend, Berechtigung `happa:read`;
+  `happa_eintragen` (bis zu 10 Einträge zu einer Mahlzeit hinzufügen, Quelle „KI“) – Berechtigung `happa:write`.
+  Verbindungen von vor dem Eintragen-Werkzeug müssen einmal getrennt und neu verbunden werden.
 - **Sicherheit:** Die Zustimmung läuft über `happa.auer.page/connect` hinter Cloudflare Access. `happa-mcp.auer.page`
   bietet nur die OAuth-Schnittstellen und `/mcp` (ohne gültiges Token nichts). Freigaben gehen nur an claude.ai/claude.com.
   Tokens liegen nur als Hash im KV-Speicher `happa-oauth`.

@@ -11,7 +11,7 @@ import { authenticate } from "./auth.js";
 import { recognizeFood } from "./ai.js";
 import { searchProducts, productByBarcode } from "./off.js";
 import { OAuthAuthorizationServer, OAuthResourceServer } from "@cloudflare/workers-oauth-provider";
-import { mcpApi, connect, MCP_HOST, MCP_RESOURCE, MCP_SCOPE, CONNECT_URL } from "./mcp.js";
+import { mcpApi, connect, MCP_HOST, MCP_RESOURCE, MCP_SCOPES, CONNECT_URL } from "./mcp.js";
 
 const MAX_PROFILE_BYTES = 16000;
 const MAX_BODY_BYTES = 64_000;
@@ -397,7 +397,7 @@ const authServer = new OAuthAuthorizationServer({
   tokenEndpoint: "/token",
   clientRegistrationEndpoint: "/register",
   clientIdMetadataDocumentEnabled: true,
-  scopesSupported: [MCP_SCOPE],
+  scopesSupported: MCP_SCOPES,
   accessTokenTTL: 3600,
   // Verbindung bleibt, solange sie benutzt wird; nach 60 Tagen ohne Nutzung neu verbinden
   refreshTokenTTL: 365 * 86400,
@@ -408,7 +408,7 @@ const resourceServer = new OAuthResourceServer({
   resourceMetadata: {
     resource: MCP_RESOURCE,
     authorization_servers: [`https://${MCP_HOST}`],
-    scopes_supported: [MCP_SCOPE],
+    scopes_supported: MCP_SCOPES,
     bearer_methods_supported: ["header"],
     resource_name: "Happa",
   },
