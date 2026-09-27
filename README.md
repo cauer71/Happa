@@ -97,6 +97,11 @@ npm run db:init                             # einmalig: Tabellen in der echten D
 npm run deploy
 ```
 
+**Automatisch:** Jeder Push auf `main` veröffentlicht die App über GitHub Actions
+(`.github/workflows/deploy.yml`, ausgenommen reine Änderungen an `docs/` und `README.md`).
+Das Repository-Secret `CLOUDFLARE_API_TOKEN` enthält den Cloudflare-Token „Happa GitHub Deploy“
+(nur Workers-Skripte, Routen der Zone auer.page, D1 lesen). Von Hand starten: Actions → Deploy → *Run workflow*.
+
 ### Cloudflare Access
 
 - Anwendung **„Happa“** für `happa.auer.page`: Einmal-PIN per E-Mail, Sitzung 730 h,
