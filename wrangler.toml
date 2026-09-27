@@ -1,21 +1,33 @@
 name = "happa"
 main = "worker/index.js"
 compatibility_date = "2026-09-01"
+# für den Claude-Connector (OAuth-Client-Metadaten nur aus dem öffentlichen Internet abrufen)
+compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = false
 
 # App unter eigener Domain; Cloudflare Access (Einmal-PIN per E-Mail) steht davor.
-routes = [{ pattern = "happa.auer.page", custom_domain = true }]
+routes = [
+  { pattern = "happa.auer.page", custom_domain = true },
+  # TEST Claude-Connector (MCP, nur lesend); ohne Access, geschützt per OAuth-Token (worker/mcp.js)
+  { pattern = "happa-mcp.auer.page", custom_domain = true },
+]
 
 # public/ wird als statische Dateien ausgeliefert, /api/* beantwortet der Worker.
+# Der Worker läuft vor jeder Anfrage, damit happa-mcp.auer.page keine App-Dateien ausliefert.
 [assets]
 directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-run_worker_first = ["/api/*"]
+run_worker_first = true
 
 # Workers AI (kostenloses Tageskontingent) für die Speisenerkennung per Foto
 [ai]
 binding = "AI"
+
+# Anmeldungen des Claude-Connectors (OAuth-Tokens, nur als Hash gespeichert)
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "303ec2b87fd340f5af3b77d39188586b"
 
 [[d1_databases]]
 binding = "DB"

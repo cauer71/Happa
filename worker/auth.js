@@ -53,7 +53,8 @@ function tokenFrom(request) {
 
 // Liefert { email } oder null. Service-Token (für automatisierte Tests)
 // haben keine E-Mail; sie bekommen ein eigenes Profil "service:<Client-ID>".
-export async function authenticate(request, env) {
+// aud: Zielgruppe der Access-Anwendung (Standard: die App; der Claude-Connector hat eine eigene).
+export async function authenticate(request, env, aud = env.ACCESS_AUD) {
   const token = tokenFrom(request);
   if (!token) {
     // Nur für "wrangler dev" auf dem eigenen Rechner (in .dev.vars setzen).
@@ -82,9 +83,9 @@ export async function authenticate(request, env) {
     if (!valid) return null;
 
     const now = Math.floor(Date.now() / 1000);
-    const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+    const audList = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
     if (payload.iss !== `https://${env.ACCESS_TEAM_DOMAIN}`) return null;
-    if (!aud.includes(env.ACCESS_AUD)) return null;
+    if (!aud || !audList.includes(aud)) return null;
     if (payload.exp && payload.exp < now) return null;
     if (payload.nbf && payload.nbf > now + 60) return null;
 

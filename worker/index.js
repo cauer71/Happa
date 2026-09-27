@@ -10,6 +10,8 @@
 import { authenticate } from "./auth.js";
 import { recognizeFood } from "./ai.js";
 import { searchProducts, productByBarcode } from "./off.js";
+import { OAuthAuthorizationServer, OAuthResourceServer } from "@cloudflare/workers-oauth-provider";
+import { mcpApi, connect, MCP_HOST, MCP_RESOURCE, MCP_SCOPE, CONNECT_URL } from "./mcp.js";
 
 const MAX_PROFILE_BYTES = 16000;
 const MAX_BODY_BYTES = 64_000;
@@ -360,7 +362,7 @@ function csrfCheck(request, url) {
   return null;
 }
 
-export default {
+const app = {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
@@ -384,5 +386,48 @@ export default {
       console.error(err);
       return json({ error: "Serverfehler" }, 500);
     }
+  },
+};
+
+// TEST Claude-Connector (siehe worker/mcp.js). Zum Entfernen alles ab hier durch `export default app;` ersetzen.
+const authServer = new OAuthAuthorizationServer({
+  issuer: `https://${MCP_HOST}`,
+  resources: [MCP_RESOURCE],
+  authorizeEndpoint: CONNECT_URL,
+  tokenEndpoint: "/token",
+  clientRegistrationEndpoint: "/register",
+  clientIdMetadataDocumentEnabled: true,
+  scopesSupported: [MCP_SCOPE],
+  accessTokenTTL: 3600,
+  // Verbindung bleibt, solange sie benutzt wird; nach 60 Tagen ohne Nutzung neu verbinden
+  refreshTokenTTL: 365 * 86400,
+  refreshTokenIdleTTL: 60 * 86400,
+});
+
+const resourceServer = new OAuthResourceServer({
+  resourceMetadata: {
+    resource: MCP_RESOURCE,
+    authorization_servers: [`https://${MCP_HOST}`],
+    scopes_supported: [MCP_SCOPE],
+    bearer_methods_supported: ["header"],
+    resource_name: "Happa",
+  },
+  validateToken: (env) => (resource, token) => authServer.validateToken(resource, token, env),
+  handler: mcpApi,
+});
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    if (url.hostname === MCP_HOST) {
+      const p = url.pathname;
+      if (p === "/mcp" || p.startsWith("/mcp/") || p.startsWith("/.well-known/oauth-protected-resource")) {
+        return resourceServer.fetch(request, env, ctx);
+      }
+      if (p === "/token" || p === "/register" || p.startsWith("/.well-known/")) return authServer.fetch(request, env, ctx);
+      return new Response("Happa-Connector für Claude: " + MCP_RESOURCE, { status: p === "/" ? 200 : 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+    }
+    if (url.pathname === "/connect") return connect(request, env, authServer.getOAuthApi(env));
+    return app.fetch(request, env, ctx);
   },
 };
