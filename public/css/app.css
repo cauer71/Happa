@@ -898,6 +898,7 @@ a { color: var(--accent-text); }
 .energy-balance .under { color: var(--accent-text); }
 .health-status { display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
 .health-status b { font-weight: 600; }
+.copy-input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; line-height: 1.6; padding-top: 0; padding-bottom: 0; }
 .health-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; line-height: 1.45; }
 .btn.danger-soft { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 

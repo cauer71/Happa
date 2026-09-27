@@ -10,10 +10,26 @@ import { totals } from "../nutrition.js";
 
 const IMPORT_URL = "https://happa-mcp.auer.page/health/import";
 
-async function copy(text, label) {
+async function copy(text, label, fieldId) {
   haptic();
+  const field = fieldId && document.getElementById(fieldId);
   try { await navigator.clipboard.writeText(text); toast(`${label} kopiert`, "📋"); }
-  catch { toast(text, "📋"); }
+  catch {
+    if (field) { field.focus(); field.select(); field.setSelectionRange(0, text.length); }
+    try { if (!document.execCommand("copy")) throw 0; toast(`${label} kopiert`, "📋"); }
+    catch { toast("Text ist markiert – lange drücken und „Kopieren“ wählen", "📋"); }
+  }
+}
+
+function CopyField({ id, label, value }) {
+  return html`
+    <div class="copy-field">
+      <label class="label" for=${id} style="margin-top:10px">${label}</label>
+      <div class="row" style="gap:8px">
+        <input id=${id} class="field copy-input" readonly value=${value} onFocus=${(e) => e.currentTarget.select()}/>
+        <button class="btn btn-primary" onClick=${() => copy(value, label, id)}>Kopieren</button>
+      </div>
+    </div>`;
 }
 
 const workoutEmoji = (name) => {
@@ -143,13 +159,18 @@ function HealthSheet({ id, closing }) {
         ${info?.hasKey && html`<button class=${cx("btn btn-glass", confirm === "del" && "danger-soft")} disabled=${busy} onClick=${removeKey}>${confirm === "del" ? "Wirklich?" : "Löschen"}</button>`}
       </div>
 
+      ${key ? html`
+        <section class="card" style="margin-top:14px">
+          <${CopyField} id="hk-url" label="URL (mit Schlüssel)" value=${`${IMPORT_URL}/${key}`}/>
+          <${CopyField} id="hk-key" label="Schlüssel" value=${key}/>
+          <p class="muted" style="font-size:13px;margin:10px 0 0">Die URL enthält den Schlüssel schon – meist genügt sie allein. Den Schlüssel einzeln brauchst du nur für einen Header „X-Happa-Key“.</p>
+        </section>`
+      : info?.hasKey && html`<div class="info-box warn" style="margin-top:14px">Der Schlüssel wurde auf einem anderen Gerät erzeugt. Tippe auf „Neuer Schlüssel“, dann erscheinen hier URL und Schlüssel zum Kopieren.</div>`}
+
       <div class="label">In Health Auto Export einrichten</div>
       <ol class="health-steps">
         <li>Unten auf <b>Automations</b> tippen, dann <b>+</b> (neue Automation), Typ <b>REST API</b>.</li>
-        <li><b>URL</b> – deine Adresse mit Schlüssel:
-          ${key ? html`<button class="cg-url" style="margin-top:6px" onClick=${() => copy(`${IMPORT_URL}/${key}`, "Adresse mit Schlüssel")} aria-label="Adresse mit Schlüssel kopieren"><code>${IMPORT_URL}/${key.slice(0, 10)}…</code><span>Kopieren</span></button>`
-            : html`<div class="info-box warn" style="margin-top:6px">${info?.hasKey ? "Der Schlüssel wurde auf einem anderen Gerät erzeugt. Tippe oben auf „Neuer Schlüssel“, dann steht hier deine Adresse." : "Tippe oben auf „Schlüssel erzeugen“, dann steht hier deine Adresse."}</div>`}
-          <div class="muted" style="font-size:13px;margin-top:6px">Die Adresse endet auf <code>/import/hk_…</code>. Ins URL-Feld der Automation einfügen, das alte vorher löschen.</div></li>
+        <li><b>URL</b>: die <b>URL (mit Schlüssel)</b> von oben einfügen – das alte URL-Feld vorher leeren. Sie endet auf <code>/import/hk_…</code>.</li>
         <li><b>Headers</b> brauchst du keine – der Schlüssel steckt in der Adresse. Automation <b>speichern</b>.</li>
         <li><b>Data Type</b>: <b>Health Metrics</b>, darin <b>Active Energy</b>, <b>Resting Energy</b> und <b>Step Count</b> wählen.</li>
         <li><b>Export Format</b> JSON, <b>Aggregate Data</b> an mit Intervall <b>Days</b>, <b>Date Range</b> z. B. <b>Previous 7 Days</b> (ersetzt die Tageswerte, nichts wird doppelt).</li>
