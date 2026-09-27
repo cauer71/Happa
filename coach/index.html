@@ -300,7 +300,15 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 
   <section class="card panel" id="p-photo" role="tabpanel" aria-labelledby="tab-photo" hidden>
     <p class="intro">Zweite Meinung für schwierige Gerichte. Das Foto geht nur an Claude und wird nicht gespeichert. Eintragen musst du das Ergebnis weiterhin in Happa.</p>
-    <p class="note" id="photo-unavailable" hidden>In dieser Ansicht kann Claude keine Bilder empfangen. Probier es in der Claude-App.</p>
+    <div id="photo-unavailable" class="panel" hidden>
+      <p class="note">Hier im Coach kann Claude keine Fotos empfangen. Im normalen Claude-Chat geht es, und dort kennt Claude über den Happa-Connector auch deinen Tag.</p>
+      <ol class="small" style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px">
+        <li>Neuen Chat in Claude öffnen und das Foto aufnehmen oder anhängen.</li>
+        <li>Diesen Text dazu einfügen und senden:</li>
+      </ol>
+      <textarea id="photo-prompt" readonly aria-label="Text für den Claude-Chat" style="min-height:120px;font-family:var(--font);font-size:15px">Schätze die Bestandteile dieser Mahlzeit mit Gramm, kcal, Eiweiß, Kohlenhydraten und Fett (denk an Öl, Butter und Soßen) und gib mir eine kurze Tabelle. Schau dann mit dem Happa-Connector (happa_tag), wie viel ich heute schon gegessen habe und was danach noch übrig bleibt.</textarea>
+      <div class="actions"><button class="btn primary" id="btn-copy-prompt" type="button">Text kopieren</button></div>
+    </div>
     <div id="photo-ui">
       <label class="drop" id="drop" for="photo-file">
         <span class="big" aria-hidden="true">📷</span>
@@ -846,6 +854,13 @@ Wenn kein Essen zu sehen ist: {"dish":"","items":[],"notes":"Kein Essen erkannt.
     } catch (e) {
       out.innerHTML = `<p class="error">${esc(errorText(e) || "Abgebrochen.")}</p>`;
     } finally { btn.disabled = false; }
+  });
+
+  $("btn-copy-prompt").addEventListener("click", async () => {
+    const box = $("photo-prompt"), btn = $("btn-copy-prompt");
+    try { await navigator.clipboard.writeText(box.value); btn.textContent = "Kopiert"; }
+    catch { box.focus(); box.select(); btn.textContent = "Markiert – jetzt kopieren"; }
+    setTimeout(() => { btn.textContent = "Text kopieren"; }, 2500);
   });
 
   // ── Start ──
