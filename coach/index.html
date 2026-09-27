@@ -224,11 +224,13 @@ tfoot td { font-weight: 700; border-bottom: 0; }
         <div id="src-meta" class="muted small">So sieht der Coach mit Daten aus.</div>
       </div>
       <div class="actions">
-        <button class="btn primary" id="btn-paste" type="button">Daten einfügen</button>
+        <button class="btn primary" id="btn-happa" type="button" hidden>Aus Happa laden</button>
+        <button class="btn" id="btn-paste" type="button">Daten einfügen</button>
         <button class="btn" id="btn-file" type="button">Export-Datei</button>
         <button class="btn danger" id="btn-reset" type="button" hidden>Alle Daten löschen</button>
       </div>
     </div>
+    <p class="note" id="happa-note" style="margin-top:12px" hidden></p>
     <div class="confirm" id="reset-box" role="alertdialog" aria-labelledby="reset-q" hidden>
       <p id="reset-q"><b>Alle Daten löschen?</b> Die eingefügten Happa-Daten, der Chat und die Antworten verschwinden von diesem Gerät. In Happa selbst bleibt alles erhalten.</p>
       <div class="actions">
@@ -238,7 +240,7 @@ tfoot td { font-weight: 700; border-bottom: 0; }
     </div>
     <input type="file" id="file-json" accept="application/json,.json" hidden>
     <div class="paste" id="paste-box" hidden>
-      <p class="muted small" style="margin:0">In Happa: <b>Profil → Happa Coach (Test) → Daten kopieren</b>. Dann hier einfügen.</p>
+      <p class="muted small" style="margin:0">Ohne Connector: in Happa <b>Profil → Happa Coach (Test) → Daten kopieren</b>, dann hier einfügen.</p>
       <textarea id="paste-text" placeholder="Hier einfügen …" aria-label="Kopierte Happa-Daten"></textarea>
       <p class="error" id="paste-error" hidden></p>
       <div class="actions">
@@ -560,8 +562,8 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
     const withLog = data.days.filter((x) => x.log.length);
     const created = new Date(data.created);
     $("src-meta").textContent = data.example
-      ? "So sieht der Coach mit Daten aus. Füge deine eigenen Daten ein."
-      : `${withLog.length} Tage mit Einträgen · kopiert am ${created.toLocaleDateString("de-DE")} um ${created.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
+      ? "So sieht der Coach mit Daten aus. Lade deine eigenen Daten aus Happa."
+      : `${withLog.length} Tage mit Einträgen · Stand ${created.toLocaleDateString("de-DE")} um ${created.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
     $("btn-reset").hidden = data.example;
   }
 
@@ -646,6 +648,49 @@ Die Kalorienwerte sind Schätzungen aus einer App; Gewicht schwankt täglich um 
     $("src-meta").textContent = "Alle Daten gelöscht. Jetzt können die nächsten ihre eigenen Happa-Daten einfügen.";
     $("btn-paste").focus();
   });
+
+  // ── Direkt aus Happa laden (Claude-Connector „Happa“) ──
+  const HAPPA = "Happa";
+  const CONNECT_HINT = "Füge Happa in Claude hinzu: Einstellungen → Connectors → Benutzerdefinierten Connector hinzufügen, Name „Happa“, URL https://happa-mcp.auer.page/mcp";
+  let mcp = null, happaBusy = false;
+  function happaNote(text) { $("happa-note").textContent = text || ""; $("happa-note").hidden = !text; }
+  function mcpErrorText(e) {
+    switch (e && e.code) {
+      case "server_not_connected": case "server_not_found": return CONNECT_HINT;
+      case "needs_reauth": return "Die Verbindung zu Happa ist abgelaufen. Verbinde Happa in Claude unter Einstellungen → Connectors neu.";
+      case "selection_required": return "Es gibt mehrere Connectors mit dem Namen „Happa“. Wähle einen aus oder entferne die doppelten unter Einstellungen → Connectors.";
+      case "not_in_manifest": return "Du hast dem Coach den Zugriff auf Happa nicht erlaubt. Lade die Seite neu, um noch einmal gefragt zu werden.";
+      case "blocked_by_policy": case "approval_required": return "Deine Organisation erlaubt diesen Zugriff auf Happa nicht.";
+      case "server_unavailable": return "Happa ist gerade nicht erreichbar. Versuch es gleich noch einmal.";
+      case "tool_error": return (e.message || "Happa hat einen Fehler gemeldet.");
+      case "not_granted": case "capability_disabled": case "capability_removed": return "In dieser Ansicht kann der Coach Happa nicht lesen. Füge die Daten stattdessen ein.";
+      case "cancelled": return "";
+      default: return "Die Daten konnten nicht geladen werden. Versuch es noch einmal oder füge sie ein.";
+    }
+  }
+  async function loadFromHappa(silent) {
+    if (!mcp || happaBusy) return;
+    happaBusy = true;
+    const btn = $("btn-happa");
+    btn.disabled = true; btn.textContent = "Lade …";
+    if (!silent) happaNote("");
+    try {
+      const res = await mcp.callTool(HAPPA, "happa_zusammenfassung", { tage: 28 }, { cache: false });
+      const raw = res && (res.payload ?? res.structuredContent);
+      const obj = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const d = normalize(obj);
+      setData(d, JSON.stringify(obj));
+      $("paste-box").hidden = true;
+      happaNote("");
+    } catch (e) {
+      const msg = e && e.code ? mcpErrorText(e) : (e && e.message) || "Die Daten konnten nicht gelesen werden.";
+      // Beim automatischen Laden nur Hinweise zeigen, die weiterhelfen
+      if (msg && !(silent && e && e.code === "not_in_manifest")) happaNote(msg);
+    } finally {
+      happaBusy = false; btn.disabled = false; btn.textContent = "Aus Happa laden";
+    }
+  }
+  $("btn-happa").addEventListener("click", () => loadFromHappa(false));
 
   // ── Rückblick ──
   let reviewCtl = null;
@@ -807,6 +852,14 @@ Wenn kein Essen zu sehen ist: {"dish":"","items":[],"notes":"Kein Essen erkannt.
   setData(loadSaved());
   const savedTab = store.get("happa-coach-tab");
   showTab(TABS.includes(savedTab) ? savedTab : "review");
+
+  const mcpPromise = window.claude && typeof window.claude.use === "function" ? window.claude.use("mcp") : Promise.resolve(null);
+  mcpPromise.then((m) => {
+    mcp = m;
+    if (!m) return;
+    $("btn-happa").hidden = false;
+    loadFromHappa(true);
+  }).catch(() => {});
 
   const aiButtons = ["btn-review", "btn-send", "btn-recipes", "btn-photo"];
   aiButtons.forEach((id) => { $(id).disabled = true; });

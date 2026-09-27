@@ -290,6 +290,13 @@ function errorPage(message, status = 400) {
   return page("Happa", `<img src="/icons/icon-192.png" alt=""><h1>Das hat nicht geklappt</h1><p>${esc(message)}</p><p class="muted">Starte die Verbindung in Claude bitte noch einmal.</p>`, status);
 }
 
+// Kennung für die Freigabe: Hash der E-Mail (die Bibliothek trennt Codes an „:“,
+// Service-Zugänge heißen aber „service:…“)
+async function userKey(email) {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email));
+  return "u" + [...new Uint8Array(hash)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 function redirectHostAllowed(uri) {
   try {
     const u = new URL(uri);
@@ -315,7 +322,7 @@ export async function connect(request, env, oauth) {
       const client = await oauth.lookupClient(approved.request.clientId);
       const { redirectTo } = await oauth.completeAuthorization({
         request: approved.request,
-        userId: user.email,
+        userId: await userKey(user.email),
         metadata: { clientName: client?.clientName || "Claude", email: user.email },
         scope: [MCP_SCOPE],
         props: { email: user.email },
