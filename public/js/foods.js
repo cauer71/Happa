@@ -2,7 +2,7 @@
 // Die Datei (~470 KB, komprimiert ~130 KB) wird beim ersten Suchen geladen und
 // vom Service Worker zwischengespeichert – danach funktioniert die Suche offline.
 
-import { foodEmoji, defaultGrams } from "./nutrition.js";
+import { foodEmoji, defaultGrams, isDrink } from "./nutrition.js";
 
 let foods = null;
 let loading = null;
@@ -84,6 +84,7 @@ export function asFood(item) {
     per100: item.per100,
     src: "b",
     grams: defaultGrams(item.name, item.group),
+    unit: isDrink(item.name, item.group) ? "ml" : "g",
     source: "BLS",
   };
 }
@@ -96,6 +97,8 @@ export function productAsFood(p) {
     per100: { kcal: p.kcal, protein: p.protein, carbs: p.carbs, fat: p.fat, fiber: p.fiber, sugar: p.sugar },
     src: "o",
     grams: p.serving || defaultGrams(p.name),
+    unit: p.liquid || isDrink(p.name) ? "ml" : "g",
+    perMl: !!p.liquid, // Open Food Facts gibt Getränke pro 100 ml an
     source: "Open Food Facts",
     code: p.code,
   };

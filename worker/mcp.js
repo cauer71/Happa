@@ -219,7 +219,7 @@ async function toolFavorites(env, email) {
     favoriten: favList(user.profile).map((f) => ({
       name: f.n,
       kcal: r0(f.items.reduce((a, it) => a + (it[2] || 0), 0)),
-      teile: f.items.map((it) => ({ name: it[0], gramm: it[1], kcal: it[2], eiweiss_g: it[3], kh_g: it[4], fett_g: it[5] })),
+      teile: f.items.map((it) => ({ name: it[0], gramm: it[1], einheit: it[8] === "ml" ? "ml" : "g", kcal: it[2], eiweiss_g: it[3], kh_g: it[4], fett_g: it[5] })),
     })),
   };
 }
@@ -242,7 +242,8 @@ TOOLS.push({
           type: "object",
           properties: {
             name: { type: "string", description: "Kurzer deutscher Name, z. B. „Spaghetti Bolognese“" },
-            gramm: { type: "number", description: "Menge in Gramm (bei Getränken ml)" },
+            gramm: { type: "number", description: "Menge in Gramm – bei einheit „ml“ in Millilitern" },
+            einheit: { type: "string", enum: ["g", "ml"], description: "Optional: „ml“ für Getränke (z. B. 330 ml Bier), sonst g" },
             kcal: { type: "number" },
             eiweiss_g: { type: "number" },
             kh_g: { type: "number", description: "Kohlenhydrate in g" },
@@ -277,15 +278,17 @@ async function toolAdd(env, email, args, scopes) {
   if (args.favorit) {
     const fav = findFav(user.profile, args.favorit);
     if (!fav) throw new ToolError(`Kein Favorit „${String(args.favorit).slice(0, 40)}“ gefunden. Gespeichert: ${favList(user.profile).map((f) => f.n).join(", ") || "keine"}.`);
-    list = fav.items.map((it) => ({ name: it[0], gramm: it[1], kcal: it[2], eiweiss_g: it[3], kh_g: it[4], fett_g: it[5], emoji: it[7] }));
+    list = fav.items.map((it) => ({ name: it[0], gramm: it[1], kcal: it[2], eiweiss_g: it[3], kh_g: it[4], fett_g: it[5], emoji: it[7], einheit: it[8] }));
   }
   if (!list.length || list.length > 15) throw new ToolError("1 bis 10 Einträge pro Aufruf (oder einen Favoriten).");
   // gleiche Grenzen wie in der App (worker/index.js → cleanEntry); Quelle „k“ = KI-Schätzung
   const entries = list.map((e) => {
     const name = String(e?.name || "").trim().slice(0, 80) || "Eintrag";
     const emoji = String(e?.emoji || "").slice(0, 8) || foodEmoji(name) || "";
-    return [newId(), meal, name, r1(num(e?.gramm, 5000)), r0(num(e?.kcal, 10000)),
+    const entry = [newId(), meal, name, r1(num(e?.gramm, 5000)), r0(num(e?.kcal, 10000)),
       r1(num(e?.eiweiss_g, 1000)), r1(num(e?.kh_g, 1000)), r1(num(e?.fett_g, 1000)), "k", emoji];
+    if (e?.einheit === "ml") entry.push("ml");
+    return entry;
   });
   const params = entries.map((e) => JSON.stringify(e));
   const refs = params.map((_, i) => `json(?${i + 3})`);
@@ -298,7 +301,7 @@ async function toolAdd(env, email, args, scopes) {
   const t = sum(log);
   const g = await goalsOut(env, user.id, user.profile);
   return {
-    eingetragen: entries.map((e) => ({ name: e[2], gramm: e[3], kcal: e[4], eiweiss_g: e[5], kh_g: e[6], fett_g: e[7] })),
+    eingetragen: entries.map((e) => ({ name: e[2], gramm: e[3], einheit: e[10] === "ml" ? "ml" : "g", kcal: e[4], eiweiss_g: e[5], kh_g: e[6], fett_g: e[7] })),
     mahlzeit: MEALS[meal].name,
     datum: `${weekday(d)} ${iso(d)}`,
     summe_tag: t,
@@ -329,10 +332,10 @@ async function toolSummary(env, email, args) {
     profile: { name: user.profile.name, sex: user.profile.sex, born: user.profile.born, height: user.profile.height, startWeight: user.profile.startWeight, goalWeight: user.profile.goalWeight, activity: user.profile.activity, pace: user.profile.pace },
     profil: profileOut(user.profile),
     goals: g ? { kcal: g.kcal, protein: g.eiweiss_g, carbs: g.kh_g, fat: g.fett_g, water: g.wasser_ml } : null,
-    entryFormat: ["id", "mahlzeit (0 Frühstück, 1 Mittagessen, 2 Abendessen, 3 Snacks)", "name", "gramm", "kcal", "eiweiss_g", "kh_g", "fett_g"],
+    entryFormat: ["id", "mahlzeit (0 Frühstück, 1 Mittagessen, 2 Abendessen, 3 Snacks)", "name", "gramm (bei einheit ml: Milliliter)", "kcal", "eiweiss_g", "kh_g", "fett_g", "einheit (optional: ml)"],
     days: days.filter((x) => x.log.length || x.water || x.weight != null).map((x) => ({
       d: x.d, datum: `${weekday(x.d)} ${iso(x.d)}`, summe: sum(x.log),
-      log: x.log.map((e) => e.slice(0, 8)), water: x.water, weight: x.weight,
+      log: x.log.map((e) => (e[10] === "ml" ? [...e.slice(0, 8), "ml"] : e.slice(0, 8))), water: x.water, weight: x.weight,
       ...(x.act ? { verbrauch: verbrauch(x.act) } : {}),
     })),
     weights,
@@ -351,7 +354,7 @@ async function toolDay(env, email, args) {
     ist_heute: d === todayLocal(),
     mahlzeiten: MEALS.map((m) => ({
       mahlzeit: m.name,
-      eintraege: log.filter((e) => e[1] === m.id).map((e) => ({ name: e[2], gramm: e[3], kcal: e[4], eiweiss_g: e[5], kh_g: e[6], fett_g: e[7] })),
+      eintraege: log.filter((e) => e[1] === m.id).map((e) => ({ name: e[2], gramm: e[3], einheit: e[10] === "ml" ? "ml" : "g", kcal: e[4], eiweiss_g: e[5], kh_g: e[6], fett_g: e[7] })),
       kcal: r0(log.filter((e) => e[1] === m.id).reduce((a, e) => a + (e[4] || 0), 0)),
     })),
     summe: t,

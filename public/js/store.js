@@ -454,9 +454,9 @@ export async function checkBadges(d = state.selected, extra = {}) {
 export function recentFoods() {
   return storage.get("recent", []);
 }
-export function pushRecent(food, grams) {
+export function pushRecent(food, grams, unit = food.unit) {
   const list = recentFoods().filter((f) => f.name !== food.name);
-  list.unshift({ name: food.name, emoji: food.emoji, per100: food.per100, src: food.src, grams, source: food.source });
+  list.unshift({ name: food.name, emoji: food.emoji, per100: food.per100, src: food.src, grams, unit, perMl: food.perMl || undefined, source: food.source });
   storage.set("recent", list.slice(0, 24));
 }
 

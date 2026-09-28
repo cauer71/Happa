@@ -4,7 +4,7 @@ import { html, cx, haptic, n0, n1, parseNum } from "../util.js";
 import { Icon } from "../icons.js";
 import { openOverlay, closeOverlay, updateEntry, deleteWithUndo, toast } from "../store.js";
 import { Sheet, Seg, Thumb } from "../ui.js";
-import { E, per100Of, makeEntry } from "../nutrition.js";
+import { E, per100Of, makeEntry, unitOf } from "../nutrition.js";
 import { mealOptions } from "./add.js";
 
 const SOURCES = { k: "Per Foto erkannt (KI-Schätzung)", b: "Bundeslebensmittelschlüssel", o: "Open Food Facts", m: "Manuell eingetragen" };
@@ -21,8 +21,9 @@ function EntrySheet({ id, closing, d, entry }) {
   const [busy, setBusy] = useState(false);
   const grams = parseNum(text);
   const per100 = per100Of(entry);
+  const unit = unitOf(entry);
   const next = hasGrams && grams > 0
-    ? makeEntry({ id: entry[E.id], meal, name: name.trim() || entry[E.name], grams, per100, src: entry[E.src], emoji: entry[E.emoji] })
+    ? makeEntry({ id: entry[E.id], meal, name: name.trim() || entry[E.name], grams, per100, src: entry[E.src], emoji: entry[E.emoji], unit, perMl: true })
     : [entry[0], meal, name.trim() || entry[E.name], ...entry.slice(3)];
   const changed = JSON.stringify(next) !== JSON.stringify(entry);
 
@@ -53,12 +54,12 @@ function EntrySheet({ id, closing, d, entry }) {
       ${hasGrams && html`
         <label class="label" for="e-grams">Menge</label>
         <div class="stepper">
-          <button class="icon-btn fill" aria-label="10 g weniger" onClick=${() => { haptic(); setText(String(Math.max(1, (grams || 0) - 10))); }}>−</button>
+          <button class="icon-btn fill" aria-label=${`10 ${unit} weniger`} onClick=${() => { haptic(); setText(String(Math.max(1, (grams || 0) - 10))); }}>−</button>
           <div class="unit-input grow">
             <input id="e-grams" class="field num" inputmode="decimal" value=${text} onInput=${(e) => setText(e.currentTarget.value)} onFocus=${(e) => e.currentTarget.select()}/>
-            <span>g</span>
+            <span>${unit}</span>
           </div>
-          <button class="icon-btn fill" aria-label="10 g mehr" onClick=${() => { haptic(); setText(String((grams || 0) + 10)); }}>+</button>
+          <button class="icon-btn fill" aria-label=${`10 ${unit} mehr`} onClick=${() => { haptic(); setText(String((grams || 0) + 10)); }}>+</button>
         </div>`}
       <div class="nutri">
         <div><b>${n0(next[E.kcal])}</b><span>kcal</span></div>

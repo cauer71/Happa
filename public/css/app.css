@@ -995,3 +995,11 @@ a { color: var(--accent-text); }
 .bal-legend .eat { background: linear-gradient(180deg, var(--kcal-a), var(--kcal-b)); }
 .bal-legend .est { background: none; border: 1.5px dashed var(--text-2); box-sizing: border-box; }
 .bal-note { font-size: 13px; margin: 8px 0 0; line-height: 1.45; }
+
+/* Einheit g/ml (Getränke) */
+.unit-head { align-items: flex-end; gap: 12px; }
+.unit-head .label { margin-bottom: 8px; }
+.unit-seg { width: 116px; margin-bottom: 6px; }
+.unit-seg .seg button { height: 28px; font-size: 13px; }
+.fav-grams .unit-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); height: 30px; min-width: 26px; padding: 0 4px;
+  border: 0; border-radius: 8px; background: none; color: var(--accent-text); font: 600 14px var(--font); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }

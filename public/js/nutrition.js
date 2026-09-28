@@ -88,7 +88,38 @@ export function goals(profile, weight) {
 }
 
 // Eintrag: [id, Mahlzeit, Name, Gramm, kcal, Eiweiß, KH, Fett, Quelle, Emoji]
-export const E = { id: 0, meal: 1, name: 2, grams: 3, kcal: 4, protein: 5, carbs: 6, fat: 7, src: 8, emoji: 9 };
+export const E = { id: 0, meal: 1, name: 2, grams: 3, kcal: 4, protein: 5, carbs: 6, fat: 7, src: 8, emoji: 9, unit: 10 };
+
+// Einheit eines Eintrags: "ml" bei Getränken, sonst "g" (Menge steht dann in Millilitern)
+export const unitOf = (entry) => (entry?.[E.unit] === "ml" ? "ml" : "g");
+
+// Getränke: BLS-Gruppen N (alkoholfrei) und P (alkoholisch) oder am ersten Wort erkannt – dort steht das
+// Getränk am Wortende („Apfelsaft“, „Rotwein“, „H-Milch“), aber nicht „Wassermelone“, „Käse aus Kuhmilch“
+// oder „Thunfisch im eigenen Saft“
+const DRINK_END = /(milch|kakao|saft|nektar|schorle|bier|radler|wein|sekt|prosecco|spritz|limonade|eistee|wasser|kaffee|cappuccino|espresso|tee|smoothie|shake|drink|kefir|ayran|kombucha|sirup|likör|schnaps|wodka|whisky|whiskey|most)$/;
+const DRINK_WORD = /^(latte|cola|limo|rum|gin|mate|chai|energy)$|-cola$/;
+export function isDrink(name, group) {
+  const n = String(name || "").toLowerCase();
+  const first = n.split(/[\s,/(]+/).find(Boolean) || "";
+  if (/pulver|konzentrat|granulat|blätter|bohnen|schwein$|^dickmilch/.test(first)) return false;
+  return group === "N" || group === "P" || DRINK_END.test(first) || DRINK_WORD.test(first);
+}
+// Einheit eines Lebensmittels (ältere „Zuletzt verwendet“-Einträge haben noch keine)
+export const unitFor = (food) => food?.unit || (isDrink(food?.name, food?.group) ? "ml" : "g");
+
+// kcal pro 100 g bzw. 100 ml – je nach Einheit des Lebensmittels
+export const kcalPer100 = (food, unit = unitFor(food)) => (unit === "ml" && !food.perMl ? food.per100.kcal * density(food.name) : food.per100.kcal);
+
+// Gramm pro Milliliter (für die Umrechnung der Nährwerte pro 100 g); die meisten Getränke ≈ 1
+export function density(name) {
+  const n = String(name || "").toLowerCase();
+  if (/öl(\s|$|,)/.test(n)) return 0.92;
+  if (/sirup|honig/.test(n)) return 1.33;
+  if (/likör/.test(n)) return 1.1;
+  if (/wodka|rum|gin|whisk|schnaps|brand|korn(\s|$)/.test(n)) return 0.95;
+  if (/milch|kakao|kefir|buttermilch|shake|smoothie|saft|nektar/.test(n)) return 1.04;
+  return 1;
+}
 
 export function totals(log = []) {
   const t = { kcal: 0, protein: 0, carbs: 0, fat: 0, meals: [0, 0, 0, 0], count: log.length };
@@ -103,9 +134,14 @@ export function totals(log = []) {
 }
 
 // Aus Werten pro 100 g einen Eintrag bauen
-export function makeEntry({ id, meal, name, grams, per100, src, emoji }) {
-  const f = grams / 100;
-  return [
+// Menge → Gramm für die Nährwerte pro 100 g (perMl: Werte gelten schon pro 100 ml)
+export const gramsOf = (amount, unit, name, perMl = false) => (unit === "ml" && !perMl ? amount * density(name) : amount);
+
+// grams ist die Menge in der Einheit (bei "ml" Milliliter); per100 gilt pro 100 g,
+// außer perMl ist gesetzt (Werte schon pro 100 ml, z. B. beim Bearbeiten eines ml-Eintrags)
+export function makeEntry({ id, meal, name, grams, per100, src, emoji, unit = "g", perMl = false }) {
+  const f = gramsOf(grams, unit, name, perMl) / 100;
+  const entry = [
     id, meal, name, Math.round(grams * 10) / 10,
     Math.round(per100.kcal * f),
     Math.round(per100.protein * f * 10) / 10,
@@ -113,6 +149,8 @@ export function makeEntry({ id, meal, name, grams, per100, src, emoji }) {
     Math.round(per100.fat * f * 10) / 10,
     src, emoji || "",
   ];
+  if (unit === "ml") entry.push("ml");
+  return entry;
 }
 
 export function per100Of(entry) {

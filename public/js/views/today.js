@@ -4,7 +4,7 @@ import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDat
 import { Icon } from "../icons.js";
 import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state } from "../store.js";
 import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled } from "../ui.js";
-import { MEALS, totals, tipFor, E } from "../nutrition.js";
+import { MEALS, totals, tipFor, E, unitOf } from "../nutrition.js";
 import { openAdd } from "./add.js";
 import { openEntry } from "./entry.js";
 import { openWeight } from "./weight.js";
@@ -346,7 +346,7 @@ function EntryRow({ entry, d }) {
         <${Thumb} id=${entry[E.id]} emoji=${entry[E.emoji]}/>
         <div class="grow">
           <div class="entry-name">${entry[E.name]}${entry[E.src] === "k" && html`<span class="badge-ai">KI</span>`}</div>
-          <div class="entry-sub">${n0(entry[E.grams])} g · KH ${n0(entry[E.carbs])} · E ${n0(entry[E.protein])} · F ${n0(entry[E.fat])}</div>
+          <div class="entry-sub">${n0(entry[E.grams])} ${unitOf(entry)} · KH ${n0(entry[E.carbs])} · E ${n0(entry[E.protein])} · F ${n0(entry[E.fat])}</div>
         </div>
         <div class="entry-kcal">${n0(entry[E.kcal])} <span class="muted" style="font-size:13px;font-weight:500">kcal</span></div>
       </div>

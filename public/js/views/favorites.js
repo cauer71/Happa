@@ -1,13 +1,14 @@
 // Favoriten: gespeicherte Mahlzeit-Kombinationen mit frei wählbarem Namen
 // (z. B. „Pasta-Abend“ = 300 g Spaghetti + 25 g Thunfisch + 330 ml helles Bier).
 // Gespeichert im Profil (auf allen Geräten gleich): profile.favorites =
-//   [{ id, n: Name, items: [[Name, Gramm, kcal, Eiweiß, KH, Fett, Quelle, Emoji], …] }]
+//   [{ id, n: Name, items: [[Name, Menge, kcal, Eiweiß, KH, Fett, Quelle, Emoji, Einheit?], …] }]
+// Einheit "ml" bei Getränken (Menge dann in Millilitern), sonst Gramm.
 import { useState, useEffect } from "preact/hooks";
 import { html, cx, haptic, uid, n0, n1, parseNum } from "../util.js";
 import { Icon } from "../icons.js";
 import { useStore, openOverlay, closeOverlay, closeAll, saveProfile, toast, state } from "../store.js";
 import { Sheet, Seg } from "../ui.js";
-import { E, makeEntry, mealForNow, MEALS } from "../nutrition.js";
+import { E, makeEntry, mealForNow, MEALS, unitOf, unitFor, density, kcalPer100 } from "../nutrition.js";
 import { searchFoods } from "../foods.js";
 import { commitEntries, mealOptions } from "./add.js";
 
@@ -22,7 +23,7 @@ const favEmoji = (fav) => fav.items.find((it) => it[7])?.[7] || "⭐";
 
 // Favorit → neue Einträge für eine Mahlzeit
 function toEntries(items, meal) {
-  return items.map((it) => makeEntry({ id: uid(), meal, name: it.name, grams: it.grams, per100: it.per100, src: it.src, emoji: it.emoji }));
+  return items.map((it) => makeEntry({ id: uid(), meal, name: it.name, grams: it.grams, per100: it.per100, src: it.src, emoji: it.emoji, unit: it.unit, perMl: true }));
 }
 
 async function writeFavorites(list) {
@@ -36,14 +37,18 @@ export async function addFavoriteToMeal(fav, meal, d) {
 }
 
 // Gespeichertes Format ↔ Bearbeitungsformat
-const fromStored = (it) => ({ key: uid(), name: it[0], grams: it[1], text: gramText(it[1]), per100: per100(it), src: it[6] || "m", emoji: it[7] || "" });
+// per100 gilt hier immer pro 100 der Einheit des Teils (g oder ml)
+const fromStored = (it) => ({ key: uid(), name: it[0], grams: it[1], text: gramText(it[1]), per100: per100(it), src: it[6] || "m", emoji: it[7] || "", unit: it[8] === "ml" ? "ml" : "g" });
 const fromEntry = (e) => ({ key: uid(), name: e[E.name], grams: e[E.grams], text: gramText(e[E.grams]),
-  per100: per100([e[E.name], e[E.grams], e[E.kcal], e[E.protein], e[E.carbs], e[E.fat]]), src: e[E.src], emoji: e[E.emoji] });
+  per100: per100([e[E.name], e[E.grams], e[E.kcal], e[E.protein], e[E.carbs], e[E.fat]]), src: e[E.src], emoji: e[E.emoji], unit: unitOf(e) });
 const toStored = (it) => {
   const g = Math.max(0, parseNum(it.text) || 0), f = g / 100;
-  return [it.name.slice(0, 80), Math.round(g * 10) / 10, Math.round(it.per100.kcal * f), Math.round(it.per100.protein * f * 10) / 10,
+  const out = [it.name.slice(0, 80), Math.round(g * 10) / 10, Math.round(it.per100.kcal * f), Math.round(it.per100.protein * f * 10) / 10,
     Math.round(it.per100.carbs * f * 10) / 10, Math.round(it.per100.fat * f * 10) / 10, it.src || "m", it.emoji || ""];
+  if (it.unit === "ml") out.push("ml");
+  return out;
 };
+const scale = (p, k) => ({ kcal: p.kcal * k, protein: p.protein * k, carbs: p.carbs * k, fat: p.fat * k });
 
 // Öffnet einen Favoriten (fav), legt aus Einträgen einen neuen an (entries) oder einen leeren
 export function openFavorite({ fav = null, entries = null, meal = mealForNow(), d = state.today } = {}) {
@@ -76,11 +81,20 @@ function FavoriteSheet({ id, closing, fav, entries, meal: initialMeal, d }) {
   const changed = isNew || name.trim() !== fav.n || JSON.stringify(stored) !== JSON.stringify(fav.items);
 
   const update = (key, patch) => setItems(items.map((it) => it.key === key ? { ...it, ...patch } : it));
+  // g ↔ ml umschalten: Nährwerte pro 100 über die Dichte umrechnen
+  const toggleUnit = (it) => {
+    haptic();
+    const next = it.unit === "ml" ? "g" : "ml";
+    const k = next === "ml" ? density(it.name) : 1 / density(it.name);
+    update(it.key, { unit: next, per100: scale(it.per100, k) });
+  };
   const remove = (key) => { haptic(); setItems(items.filter((it) => it.key !== key)); };
   const addFood = (food) => {
     haptic();
     if (items.length >= MAX_ITEMS) { toast(`Höchstens ${MAX_ITEMS} Teile pro Favorit`, "⚠️"); return; }
-    setItems([...items, { key: uid(), name: food.name, grams: food.grams, text: gramText(food.grams || 100), per100: food.per100, src: food.src, emoji: food.emoji }]);
+    const unit = unitFor(food);
+    const p100 = unit === "ml" && !food.perMl ? scale(food.per100, density(food.name)) : food.per100;
+    setItems([...items, { key: uid(), name: food.name, grams: food.grams, text: gramText(food.grams || 100), per100: p100, src: food.src, emoji: food.emoji, unit }]);
     setQ("");
   };
 
@@ -143,7 +157,8 @@ function FavoriteSheet({ id, closing, fav, entries, meal: initialMeal, d }) {
               <div class="entry-sub">${n0(it.per100.kcal * g / 100)} kcal</div>
             </div>
             <div class="unit-input fav-grams"><input class="field num" inputmode="decimal" value=${it.text} aria-label=${`Menge ${it.name}`}
-              onFocus=${(e) => e.currentTarget.select()} onInput=${(e) => update(it.key, { text: e.currentTarget.value })}/><span>g</span></div>
+              onFocus=${(e) => e.currentTarget.select()} onInput=${(e) => update(it.key, { text: e.currentTarget.value })}/><button type="button" class="unit-toggle" onClick=${() => toggleUnit(it)}
+              aria-label=${`Einheit ${it.unit === "ml" ? "Milliliter" : "Gramm"}, tippen zum Wechseln`}>${it.unit === "ml" ? "ml" : "g"}</button></div>
             <button class="icon-btn sm fill" aria-label=${`${it.name} entfernen`} onClick=${() => remove(it.key)}>${Icon.close()}</button>
           </div>`;
         })}
@@ -158,7 +173,7 @@ function FavoriteSheet({ id, closing, fav, entries, meal: initialMeal, d }) {
         <div class="result" key=${f.name + i}>
           <button type="button" class="result-main" onClick=${() => addFood(f)} aria-label=${`${f.name} hinzufügen`}>
             <div class="entry-thumb" aria-hidden="true">${f.emoji}</div>
-            <div class="grow"><div class="entry-name">${f.name}</div><div class="entry-sub">${n0(f.per100.kcal)} kcal / 100 g · ${gramText(f.grams)} g</div></div>
+            <div class="grow"><div class="entry-name">${f.name}</div><div class="entry-sub">${n0(kcalPer100(f))} kcal / 100 ${unitFor(f)} · ${gramText(f.grams)} ${unitFor(f)}</div></div>
           </button>
           <button type="button" class="result-add" aria-label=${`${f.name} hinzufügen`} onClick=${() => addFood(f)}>${Icon.plus()}</button>
         </div>`)}</div>`}

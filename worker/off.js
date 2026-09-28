@@ -36,6 +36,7 @@ function simplify(p) {
     fiber: num(n.fiber_100g),
     sugar: num(n.sugars_100g),
     serving: num(p.serving_quantity) || null,
+    liquid: /\d\s*(ml|cl|l)\b/i.test(String(p.quantity || "")) || undefined,
     image: p.image_front_small_url || null,
   };
 }

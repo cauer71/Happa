@@ -56,13 +56,14 @@ const toDay = (t) => {
 };
 const prevDay = (d) => toDay(Date.UTC(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100) - 86400000);
 
-// Eintrag: [id, Mahlzeit 0–3, Name, Gramm, kcal, Eiweiß, Kohlenhydrate, Fett, Quelle, Emoji]
+// Eintrag: [id, Mahlzeit 0–3, Name, Menge, kcal, Eiweiß, Kohlenhydrate, Fett, Quelle, Emoji, Einheit?]
+// Menge in Gramm, bei Einheit "ml" in Millilitern (Getränke)
 // Quelle: k = KI-Foto, b = BLS, o = Open Food Facts, m = manuell
 function cleanEntry(e) {
   if (!Array.isArray(e)) throw new HttpError(400, "Eintrag muss ein Array sein");
-  const [id, meal, name, grams, kcal, protein, carbs, fat, src, emoji] = e;
+  const [id, meal, name, grams, kcal, protein, carbs, fat, src, emoji, unit] = e;
   if (typeof id !== "string" || !/^[a-z0-9]{4,16}$/.test(id)) throw new HttpError(400, "Ungültige Eintrags-ID");
-  return [
+  const out = [
     id,
     Math.round(clamp(meal, 0, 3)),
     String(name || "").trim().slice(0, 80) || "Eintrag",
@@ -74,6 +75,8 @@ function cleanEntry(e) {
     /^[kbom]$/.test(src) ? src : "m",
     String(emoji || "").slice(0, 8),
   ];
+  if (unit === "ml") out.push("ml");
+  return out;
 }
 
 // act: Verbrauch aus Apple Health (Health Auto Export), siehe worker/health.js
@@ -270,7 +273,7 @@ async function handleApi(request, env, ctx, url, email) {
     return json({
       app: "Happa", exported: new Date().toISOString(), email,
       profile: JSON.parse(user.profile || "{}"),
-      entryFormat: ["id", "meal", "name", "grams", "kcal", "protein", "carbs", "fat", "source", "emoji"],
+      entryFormat: ["id", "meal", "name", "grams (bei unit ml: Milliliter)", "kcal", "protein", "carbs", "fat", "source", "emoji", "unit (optional: ml)"],
       days: results.map((r) => dayOut(r, r.d)).filter((x) => x.log.length || x.water || x.weight != null)
         .map(({ ai, ...rest }) => rest),
     }, 200, { "content-disposition": `attachment; filename="happa-export.json"` });

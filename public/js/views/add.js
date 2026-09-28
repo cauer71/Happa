@@ -4,13 +4,14 @@ import { html, cx, haptic, today, uid, n0, n1, parseNum, debounce } from "../uti
 import { Icon } from "../icons.js";
 import { useStore, openOverlay, closeOverlay, closeAll, addEntries, toast, pushRecent, recentFoods, currentGoals, checkBadges, state } from "../store.js";
 import { Sheet, Seg } from "../ui.js";
-import { MEALS, mealForNow, makeEntry, totals, foodEmoji } from "../nutrition.js";
+import { MEALS, mealForNow, makeEntry, totals, foodEmoji, unitFor, gramsOf, kcalPer100 } from "../nutrition.js";
 import { searchFoods, productAsFood } from "../foods.js";
 import { api } from "../api.js";
 import { openCamera } from "./camera.js";
 import { FavoritesSection } from "./favorites.js";
 
 export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
+const UNITS = [{ value: "g", label: "g" }, { value: "ml", label: "ml" }];
 const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
 
 export function remainingText(d) {
@@ -22,7 +23,7 @@ export function remainingText(d) {
 // Eintragen + Rückmeldung (von Suche, Portion, Kamera genutzt)
 export async function commitEntries(d, entries, { thumb, foods = [] } = {}) {
   await addEntries(d, entries, thumb);
-  foods.forEach(([food, grams]) => pushRecent(food, grams));
+  foods.forEach(([food, grams, unit]) => pushRecent(food, grams, unit));
   haptic("success");
   toast(`Eingetragen · ${remainingText(d)}`, "✅");
   checkBadges(d, { usedAi: entries.some((e) => e[8] === "k") });
@@ -69,23 +70,24 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
   const productList = products.q === q ? products.list : [];
 
   const quickAdd = async (food) => {
-    const entry = makeEntry({ id: uid(), meal, name: food.name, grams: food.grams, per100: food.per100, src: food.src, emoji: food.emoji });
-    try { await commitEntries(d, [entry], { foods: [[food, food.grams]] }); }
+    const unit = unitFor(food);
+    const entry = makeEntry({ id: uid(), meal, name: food.name, grams: food.grams, per100: food.per100, src: food.src, emoji: food.emoji, unit, perMl: food.perMl });
+    try { await commitEntries(d, [entry], { foods: [[food, food.grams, unit]] }); }
     catch (err) { toast(err.message, "⚠️"); }
   };
   const pick = (food) => { haptic(); openPortion(food, meal, d); };
 
   const Row = (food, i) => html`
     <div class="result" key=${food.name + i}>
-      <button type="button" class="result-main" onClick=${() => pick(food)} aria-label=${`${food.name}, ${n0(food.per100.kcal)} kcal pro 100 g – Menge wählen`}>
+      <button type="button" class="result-main" onClick=${() => pick(food)} aria-label=${`${food.name}, ${n0(kcalPer100(food))} kcal pro 100 ${unitFor(food)} – Menge wählen`}>
         <div class="entry-thumb" aria-hidden="true">${food.image ? html`<img src=${food.image} alt="" loading="lazy" referrerpolicy="no-referrer"
           onError=${(e) => { e.currentTarget.replaceWith(document.createTextNode(food.emoji)); }}/>` : food.emoji}</div>
         <div class="grow">
           <div class="entry-name">${food.name}</div>
-          <div class="entry-sub">${n0(food.per100.kcal)} kcal / 100 g · ${gramText(food.grams)} g Portion${food.source ? " · " + food.source : ""}</div>
+          <div class="entry-sub">${n0(kcalPer100(food))} kcal / 100 ${unitFor(food)} · ${gramText(food.grams)} ${unitFor(food)} Portion${food.source ? " · " + food.source : ""}</div>
         </div>
       </button>
-      <button type="button" class="result-add" aria-label=${`${food.name} direkt hinzufügen (${gramText(food.grams)} g)`}
+      <button type="button" class="result-add" aria-label=${`${food.name} direkt hinzufügen (${gramText(food.grams)} ${unitFor(food)})`}
         onClick=${() => { haptic(); quickAdd(food); }}>${Icon.plus()}</button>
     </div>`;
 
@@ -133,18 +135,21 @@ export function openPortion(food, meal, d, opts = {}) {
 function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
   const [meal, setMeal] = useState(initialMeal ?? mealForNow());
   const [text, setText] = useState(gramText(food.grams || 100));
+  const [unit, setUnit] = useState(unitFor(food));
   const [imgOk, setImgOk] = useState(true);
   const [busy, setBusy] = useState(false);
   const grams = Math.max(0, parseNum(text) || 0);
-  const f = grams / 100;
-  const chips = [...new Set([food.grams, 50, 100, 150, 200, 250].filter(Boolean))].sort((a, b) => a - b);
+  const f = gramsOf(grams, unit, food.name, food.perMl) / 100;
+  const base = unit === "ml" ? [100, 200, 250, 330, 500] : [50, 100, 150, 200, 250];
+  const chips = [...new Set([food.grams, ...base].filter(Boolean))].sort((a, b) => a - b);
+  const per100Unit = kcalPer100(food, unit);
 
   const add = async () => {
     if (!grams) return;
     setBusy(true);
-    const entry = makeEntry({ id: uid(), meal, name: food.name, grams, per100: food.per100, src: food.src, emoji: food.emoji });
+    const entry = makeEntry({ id: uid(), meal, name: food.name, grams, per100: food.per100, src: food.src, emoji: food.emoji, unit, perMl: food.perMl });
     try {
-      await commitEntries(d, [entry], { thumb, foods: [[food, grams]] });
+      await commitEntries(d, [entry], { thumb, foods: [[food, grams, unit]] });
       closeAll();
     } catch (err) { toast(err.message, "⚠️"); setBusy(false); }
   };
@@ -156,21 +161,24 @@ function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
       <div class="food-hero">
         <div class="food-emoji">${food.image && imgOk ? html`<img src=${food.image} alt="" referrerpolicy="no-referrer" onError=${() => setImgOk(false)}/>` : food.emoji}</div>
         <div class="food-name">${food.name}</div>
-        <div class="muted" style="font-size:14px">${n0(food.per100.kcal)} kcal pro 100 g${food.source ? " · " + food.source : ""}</div>
+        <div class="muted" style="font-size:14px">${n0(per100Unit)} kcal pro 100 ${unit}${food.source ? " · " + food.source : ""}</div>
       </div>
       <${Seg} label="Mahlzeit" options=${mealOptions} value=${meal} onChange=${setMeal}/>
-      <label class="label" for="grams">Menge</label>
+      <div class="row between unit-head">
+        <label class="label" for="grams">Menge</label>
+        <div class="unit-seg"><${Seg} label="Einheit" options=${UNITS} value=${unit} onChange=${setUnit}/></div>
+      </div>
       <div class="stepper">
-        <button class="icon-btn fill" aria-label="10 g weniger" onClick=${() => { haptic(); setText(gramText(Math.max(0, grams - 10))); }}>−</button>
+        <button class="icon-btn fill" aria-label=${`10 ${unit} weniger`} onClick=${() => { haptic(); setText(gramText(Math.max(0, grams - 10))); }}>−</button>
         <div class="unit-input grow">
           <input id="grams" class="field num" inputmode="decimal" value=${text} onInput=${(e) => setText(e.currentTarget.value)}
             onFocus=${(e) => e.currentTarget.select()}/>
-          <span>g</span>
+          <span>${unit}</span>
         </div>
-        <button class="icon-btn fill" aria-label="10 g mehr" onClick=${() => { haptic(); setText(gramText(grams + 10)); }}>+</button>
+        <button class="icon-btn fill" aria-label=${`10 ${unit} mehr`} onClick=${() => { haptic(); setText(gramText(grams + 10)); }}>+</button>
       </div>
       <div class="chips" style="margin-top:10px">
-        ${chips.map((c) => html`<button class=${cx("chip", grams === c && "on")} aria-pressed=${grams === c} onClick=${() => { haptic(); setText(gramText(c)); }}>${gramText(c)} g</button>`)}
+        ${chips.map((c) => html`<button class=${cx("chip", grams === c && "on")} aria-pressed=${grams === c} onClick=${() => { haptic(); setText(gramText(c)); }}>${gramText(c)} ${unit}</button>`)}
       </div>
       <div class="nutri">
         <div><b>${n0(food.per100.kcal * f)}</b><span>kcal</span></div>
