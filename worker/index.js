@@ -56,7 +56,7 @@ const toDay = (t) => {
 };
 const prevDay = (d) => toDay(Date.UTC(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100) - 86400000);
 
-// Eintrag: [id, Mahlzeit 0–3, Name, Menge, kcal, Eiweiß, Kohlenhydrate, Fett, Quelle, Emoji, Einheit?]
+// Eintrag: [id, Mahlzeit 0–4 (4 = Getränke), Name, Menge, kcal, Eiweiß, Kohlenhydrate, Fett, Quelle, Emoji, Einheit?]
 // Menge in Gramm, bei Einheit "ml" in Millilitern (Getränke)
 // Quelle: k = KI-Foto, b = BLS, o = Open Food Facts, m = manuell
 function cleanEntry(e) {
@@ -65,7 +65,7 @@ function cleanEntry(e) {
   if (typeof id !== "string" || !/^[a-z0-9]{4,16}$/.test(id)) throw new HttpError(400, "Ungültige Eintrags-ID");
   const out = [
     id,
-    Math.round(clamp(meal, 0, 3)),
+    Math.round(clamp(meal, 0, 4)),
     String(name || "").trim().slice(0, 80) || "Eintrag",
     r1(clamp(grams, 0, 5000)),
     Math.round(clamp(kcal, 0, 10000)),

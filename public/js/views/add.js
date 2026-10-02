@@ -10,6 +10,7 @@ import { api } from "../api.js";
 import { openCamera } from "./camera.js";
 import { FavoritesSection } from "./favorites.js";
 
+const DRINKS = 4;
 export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
 const UNITS = [{ value: "g", label: "g" }, { value: "ml", label: "ml" }];
 const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
@@ -47,9 +48,11 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
   useEffect(() => {
     let alive = true;
     if (q.trim().length < 2) { setLocal([]); return; }
-    searchFoods(q, 30).then((r) => alive && setLocal(r)).catch(() => alive && setLocal([]));
+    // Unter „Getränke“ stehen Getränke vorne (sonst kommt bei „Tee“ zuerst Teegebäck)
+    const drinksFirst = (r) => (meal === DRINKS ? [...r.filter((f) => unitFor(f) === "ml"), ...r.filter((f) => unitFor(f) !== "ml")] : r);
+    searchFoods(q, 30).then((r) => alive && setLocal(drinksFirst(r))).catch(() => alive && setLocal([]));
     return () => { alive = false; };
-  }, [q]);
+  }, [q, meal]);
 
   // Nur die Antwort auf den zuletzt getippten Begriff zählt; ältere werden abgebrochen.
   const fetchProducts = useMemo(() => debounce(async (term) => {

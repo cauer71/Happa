@@ -5,6 +5,8 @@ export const MEALS = [
   { id: 1, name: "Mittagessen", emoji: "🍝", tint: "#ff7a59" },
   { id: 2, name: "Abendessen", emoji: "🥗", tint: "#5e8bff" },
   { id: 3, name: "Snacks", emoji: "🍎", tint: "#2fc27b" },
+  // Getränke über den Tag (Cappuccino, Tee …), keiner Mahlzeit zugeordnet
+  { id: 4, name: "Getränke", emoji: "🥤", tint: "#32ade6" },
 ];
 
 export function mealForNow(date = new Date()) {
@@ -102,6 +104,8 @@ export function isDrink(name, group) {
   const n = String(name || "").toLowerCase();
   const first = n.split(/[\s,/(]+/).find(Boolean) || "";
   if (/pulver|konzentrat|granulat|blätter|bohnen|schwein$|^dickmilch/.test(first)) return false;
+  // „Cappuccino Instantpulver“ ist kein Getränk, „Kaffee (Getränk) aus Instantpulver“ schon
+  if (/pulver|konzentrat|granulat|getrocknet/.test(n) && !/getränk/.test(n)) return false;
   return group === "N" || group === "P" || DRINK_END.test(first) || DRINK_WORD.test(first);
 }
 // Einheit eines Lebensmittels (ältere „Zuletzt verwendet“-Einträge haben noch keine)
@@ -122,7 +126,7 @@ export function density(name) {
 }
 
 export function totals(log = []) {
-  const t = { kcal: 0, protein: 0, carbs: 0, fat: 0, meals: [0, 0, 0, 0], count: log.length };
+  const t = { kcal: 0, protein: 0, carbs: 0, fat: 0, meals: [0, 0, 0, 0, 0], count: log.length };
   for (const e of log) {
     t.kcal += e[E.kcal];
     t.protein += e[E.protein];
@@ -190,7 +194,7 @@ export function earnedBadges(ctx) {
   if (ctx.entries >= 100) got.push("meals100");
   if (ctx.water >= ctx.waterGoal && ctx.waterGoal > 0) got.push("water");
   const t = totals(ctx.log);
-  const mealsWithFood = t.meals.filter((k) => k > 0).length;
+  const mealsWithFood = t.meals.slice(0, 4).filter((k) => k > 0).length; // Getränke zählen nicht als Mahlzeit
   if (ctx.isPast && mealsWithFood >= 3 && Math.abs(t.kcal - ctx.kcalGoal) <= ctx.kcalGoal * 0.1) got.push("balanced");
   if (ctx.weight) {
     got.push("weigh");
@@ -266,7 +270,7 @@ export function foodEmoji(name, group) {
 const PORTIONS = [
   [/(^|\s)(hühner)?ei(er)?(\s|$)/, 60], [/apfel(?!saft|wein|kuchen|mus|essig)|birne|orange/, 150], [/banane/, 120],
   [/brötchen|semmel|croissant|brezel/, 60], [/brot|toast/, 50], [/joghurt|skyr|quark/, 150],
-  [/milch(?!pulver|reis)/, 200], [/kaffee|espresso/, 150], [/tee(\s|$)/, 250], [/bier/, 500], [/wein|sekt/, 150],
+  [/milch(?!pulver|reis)/, 200], [/cappuccino|latte/, 200], [/kaffee|espresso/, 150], [/tee(\s|$)/, 250], [/bier/, 500], [/wein|sekt/, 150],
   [/saft|cola|limonade|wasser/, 250], [/pizza/, 350], [/nudel|spaghetti|teigwaren|reis/, 200],
   [/butter|öl|margarine/, 10], [/käse/, 30], [/wurst|schinken|salami/, 30], [/schokolade/, 25],
   [/kuchen|torte|strudel/, 120], [/müsli|hafer|flocken/, 50], [/nuss|nüsse|mandel/, 25], [/suppe|eintopf/, 300],

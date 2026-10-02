@@ -12,7 +12,7 @@ export const norm = (s) => String(s).toLowerCase()
   .replace(/[^a-z0-9]+/g, " ").trim();
 
 // Zusätze, die ein Lebensmittel "spezieller" machen – solche Einträge rutschen nach hinten
-const SPECIAL = /\b(pulver|getrocknet|konserve|angereichert|tiefgefroren|trockenprodukt|instant|saftkonzentrat|diaet|sauer eingelegt|kandiert)\b/;
+const SPECIAL = /\b(pulver|instantpulver|getrocknet|konserve|angereichert|tiefgefroren|trockenprodukt|instant|saftkonzentrat|diaet|sauer eingelegt|kandiert)\b/;
 
 export function loadFoods() {
   if (foods) return Promise.resolve(foods);

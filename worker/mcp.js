@@ -224,7 +224,7 @@ async function toolFavorites(env, email) {
   };
 }
 
-const MEAL_IDS = { fruehstueck: 0, "frühstück": 0, mittagessen: 1, abendessen: 2, snack: 3, snacks: 3 };
+const MEAL_IDS = { fruehstueck: 0, "frühstück": 0, mittagessen: 1, abendessen: 2, snack: 3, snacks: 3, getraenke: 4, "getränke": 4, getraenk: 4, "getränk": 4 };
 
 TOOLS.push({
   name: "happa_eintragen",
@@ -233,7 +233,7 @@ TOOLS.push({
   inputSchema: {
     type: "object",
     properties: {
-      mahlzeit: { type: "string", enum: ["fruehstueck", "mittagessen", "abendessen", "snack"], description: "Mahlzeit, zu der eingetragen wird" },
+      mahlzeit: { type: "string", enum: ["fruehstueck", "mittagessen", "abendessen", "snack", "getraenke"], description: "Mahlzeit, zu der eingetragen wird – „getraenke“ für Getränke über den Tag (Cappuccino, Tee, Saft …), die zu keiner Mahlzeit gehören" },
       datum: { type: "string", description: "Datum als JJJJ-MM-TT, leer = heute (höchstens 30 Tage zurück)" },
       favorit: { type: "string", description: "Name eines gespeicherten Favoriten – statt „eintraege“" },
       eintraege: {
@@ -269,7 +269,7 @@ async function toolAdd(env, email, args, scopes) {
     throw new ToolError("Zum Eintragen braucht Claude eine neue Freigabe: in Claude unter Einstellungen → Connectors → Happa auf „Trennen“ tippen und neu verbinden, dann bei Happa „Erlauben“.");
   }
   const meal = typeof args.mahlzeit === "number" ? args.mahlzeit : MEAL_IDS[String(args.mahlzeit || "").toLowerCase()];
-  if (![0, 1, 2, 3].includes(meal)) throw new ToolError("Mahlzeit bitte als fruehstueck, mittagessen, abendessen oder snack angeben.");
+  if (![0, 1, 2, 3, 4].includes(meal)) throw new ToolError("Mahlzeit bitte als fruehstueck, mittagessen, abendessen, snack oder getraenke angeben.");
   const today = todayLocal();
   const d = parseDate(args.datum);
   if (d > addDays(today, 1) || d < addDays(today, -30)) throw new ToolError("Eintragen geht nur für die letzten 30 Tage.");
@@ -332,7 +332,7 @@ async function toolSummary(env, email, args) {
     profile: { name: user.profile.name, sex: user.profile.sex, born: user.profile.born, height: user.profile.height, startWeight: user.profile.startWeight, goalWeight: user.profile.goalWeight, activity: user.profile.activity, pace: user.profile.pace },
     profil: profileOut(user.profile),
     goals: g ? { kcal: g.kcal, protein: g.eiweiss_g, carbs: g.kh_g, fat: g.fett_g, water: g.wasser_ml } : null,
-    entryFormat: ["id", "mahlzeit (0 Frühstück, 1 Mittagessen, 2 Abendessen, 3 Snacks)", "name", "gramm (bei einheit ml: Milliliter)", "kcal", "eiweiss_g", "kh_g", "fett_g", "einheit (optional: ml)"],
+    entryFormat: ["id", "mahlzeit (0 Frühstück, 1 Mittagessen, 2 Abendessen, 3 Snacks, 4 Getränke)", "name", "gramm (bei einheit ml: Milliliter)", "kcal", "eiweiss_g", "kh_g", "fett_g", "einheit (optional: ml)"],
     days: days.filter((x) => x.log.length || x.water || x.weight != null).map((x) => ({
       d: x.d, datum: `${weekday(x.d)} ${iso(x.d)}`, summe: sum(x.log),
       log: x.log.map((e) => (e[10] === "ml" ? [...e.slice(0, 8), "ml"] : e.slice(0, 8))), water: x.water, weight: x.weight,
