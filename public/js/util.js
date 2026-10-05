@@ -32,6 +32,8 @@ export function dayTitle(d) {
 const nf0 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 1 });
 export const n0 = (v) => nf0.format(Math.round(v || 0));
+// Liter aus ml mit bis zu 2 Nachkommastellen: 250 ml → „0,25“, 2.250 ml → „2,25“
+export const liters = (ml) => String(Math.round((ml || 0) / 10) / 100).replace(".", ",");
 export const n1 = (v) => nf1.format(Math.round((v || 0) * 10) / 10);
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 export const parseNum = (s) => {

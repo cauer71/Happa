@@ -1,6 +1,6 @@
 // Tab „Profil“: Ziele, Körperdaten, Erscheinungsbild, Export, Abmelden, Konto löschen.
 import { useState } from "preact/hooks";
-import { html, cx, haptic, n0, n1, parseNum, initials, today } from "../util.js";
+import { html, cx, haptic, n0, n1, liters, parseNum, initials, today } from "../util.js";
 import { Icon } from "../icons.js";
 import { useStore, openOverlay, closeOverlay, saveProfile, toast, currentGoals, currentWeight, deleteAccount, clearLocalData, state } from "../store.js";
 import { Sheet, Seg, NavBar, useScrolled } from "../ui.js";
@@ -57,7 +57,7 @@ export function ProfileView() {
               ${row("🔥", "var(--accent)", "Kalorienziel", `${n0(g.kcal)} kcal${p.kcalGoal ? "" : " · auto"}`, () => openGoals())}
               ${row("🎯", "var(--weight)", "Zielgewicht", p.goalWeight ? `${n1(p.goalWeight)} kg` : "–", () => openTarget())}
               ${row("🥗", "var(--carbs)", "Nährstoffe", splitName(p.split), () => openGoals())}
-              ${row("💧", "var(--water)", "Wasser", `${n1(g.water / 1000)} l`, () => openGoals())}
+              ${row("💧", "var(--water)", "Wasser", `${liters(g.water)} l`, () => openGoals())}
             </section>
           </div>
 
@@ -169,7 +169,7 @@ function GoalsSheet({ id, closing }) {
       <label class="label">Wasser pro Tag</label>
       <div class="stepper">
         <button class="icon-btn fill" aria-label="250 ml weniger" onClick=${() => { haptic(); setWater(Math.max(1000, water - 250)); }}>−</button>
-        <div class="field num center grow" style="display:grid;place-items:center;font-weight:700">${n1(water / 1000)} l</div>
+        <div class="field num center grow" style="display:grid;place-items:center;font-weight:700">${liters(water)} l</div>
         <button class="icon-btn fill" aria-label="250 ml mehr" onClick=${() => { haptic(); setWater(Math.min(5000, water + 250)); }}>+</button>
       </div>
     </${Sheet}>`;

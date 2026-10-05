@@ -1,6 +1,6 @@
 // Tab „Heute“: Wochenleiste, Kalorienring, Mahlzeiten, Wasser, Gewicht, Tipp.
 import { useState, useRef, useEffect, useLayoutEffect } from "preact/hooks";
-import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, initials, shortDate, reduceMotion } from "../util.js";
+import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, liters, initials, shortDate, reduceMotion } from "../util.js";
 import { Icon } from "../icons.js";
 import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state } from "../store.js";
 import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled } from "../ui.js";
@@ -368,8 +368,9 @@ function WaterCard({ day, goal }) {
     <section class="card" aria-label="Wasser">
       <div class="row between">
         <div class="card-title" style="margin:0"><span class="icon-dot" style="background:color-mix(in srgb, var(--water) 16%, transparent);color:var(--water)">💧</span>Wasser</div>
-        <div><span class="kpi" style="font-size:22px">${n1(day.water / 1000)}</span> <span class="muted" style="font-size:15px">/ ${n1(goal / 1000)} l</span></div>
+        <div><span class="kpi" style="font-size:22px">${liters(day.water)}</span> <span class="muted" style="font-size:15px">/ ${liters(goal)} l</span></div>
       </div>
+      <div class="muted" style="font-size:13px;margin-top:2px">${filled} ${filled === 1 ? "Glas" : "Gläser"} · ein Glas = ${cup} ml</div>
       <div class="cups" style=${`grid-template-columns:repeat(${count <= 8 ? count : Math.ceil(count / 2)},1fr)`}>
         ${Array.from({ length: count }, (_, i) => html`
           <button class=${cx("cup", i < filled && "full", i === filled && "next")} aria-label=${`Glas ${i + 1} (${(i + 1) * cup} ml)`}

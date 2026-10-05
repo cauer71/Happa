@@ -1,6 +1,6 @@
 // Erster Start: Profil anlegen und einen realistischen Plan berechnen.
 import { useState } from "preact/hooks";
-import { html, cx, haptic, n0, n1, parseNum, today } from "../util.js";
+import { html, cx, haptic, n0, n1, liters, parseNum, today } from "../util.js";
 import { Icon } from "../icons.js";
 import { state, set, saveProfile, setWeight, toast, checkBadges } from "../store.js";
 import { Seg, Ring, CountUp } from "../ui.js";
@@ -133,7 +133,7 @@ export function Onboarding() {
             <div><b style="color:var(--carbs)">${p.carbs}</b><span>KH g</span></div>
             <div><b style="color:var(--protein)">${p.protein}</b><span>Eiweiß g</span></div>
             <div><b style="color:var(--fat)">${p.fat}</b><span>Fett g</span></div>
-            <div><b style="color:var(--water)">${n1(p.water / 1000)}</b><span>Wasser l</span></div>
+            <div><b style="color:var(--water)">${liters(p.water)}</b><span>Wasser l</span></div>
           </div>
           ${p.mode === "lose" && p.eta ? html`<div class="info-box">📅 Mit ${n1(p.pace)} kg pro Woche erreichst du <b>${n1(profile.goalWeight)} kg</b> voraussichtlich im <b>${new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" }).format(p.eta)}</b>.</div>`
             : p.mode === "lose" ? html`<div class="info-box warn">An der Sicherheitsgrenze reicht das Kaloriendefizit kaum – mehr Bewegung hilft hier am meisten. Happa begleitet dich trotzdem.</div>`
