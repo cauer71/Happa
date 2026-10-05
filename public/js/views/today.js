@@ -1,6 +1,6 @@
 // Tab „Heute“: Wochenleiste, Kalorienring, Mahlzeiten, Wasser, Gewicht, Tipp.
 import { useState, useRef, useEffect, useLayoutEffect } from "preact/hooks";
-import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, liters, initials, shortDate, reduceMotion } from "../util.js";
+import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, liters, initials, shortDate, reduceMotion, storage } from "../util.js";
 import { Icon } from "../icons.js";
 import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state } from "../store.js";
 import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled } from "../ui.js";
@@ -252,22 +252,47 @@ function CalorieCard({ t, g, d }) {
 }
 
 // ── Mahlzeit ──
+// Eingeklappte Mahlzeiten merkt sich das Gerät (gilt für alle Tage)
+const collapsedMeals = () => new Set(storage.get("mealsCollapsed", []));
+
 function MealCard({ meal, day, kcal }) {
   const entries = day.log.filter((e) => e[E.meal] === meal.id);
+  const [collapsed, setCollapsed] = useState(() => collapsedMeals().has(meal.id));
+  const toggle = () => {
+    haptic();
+    const set = collapsedMeals();
+    collapsed ? set.delete(meal.id) : set.add(meal.id);
+    storage.set("mealsCollapsed", [...set]);
+    setCollapsed(!collapsed);
+  };
+  // Kommt etwas Neues dazu, klappt die Mahlzeit auf – sonst sieht man den Eintrag nicht
+  const seen = useRef({ d: day.d, n: entries.length });
+  useEffect(() => {
+    if (seen.current.d === day.d && entries.length > seen.current.n && collapsed) toggle();
+    seen.current = { d: day.d, n: entries.length };
+  }, [day.d, entries.length]);
+  const canToggle = entries.length > 0;
+  const open = !collapsed || !canToggle;
+  const head = html`
+    <div class="meal-emoji" style=${`background:color-mix(in srgb, ${meal.tint} 18%, transparent)`}>${meal.emoji}</div>
+    <div class="grow">
+      <div class="meal-name">${meal.name}${canToggle && html`<span class="meal-chev" aria-hidden="true">${Icon.chevron()}</span>`}</div>
+      <div class="meal-sub">${entries.length ? html`<span class="num">${n0(kcal)}</span> kcal · ${entries.length} ${entries.length === 1 ? "Eintrag" : "Einträge"}` : "Noch nichts eingetragen"}</div>
+    </div>`;
   return html`
-    <section class="card" aria-label=${meal.name}>
+    <section class=${cx("card", "meal-card", !open && "collapsed")} aria-label=${meal.name}>
       <div class="meal-head">
-        <div class="meal-emoji" style=${`background:color-mix(in srgb, ${meal.tint} 18%, transparent)`}>${meal.emoji}</div>
-        <div class="grow">
-          <div class="meal-name">${meal.name}</div>
-          <div class="meal-sub">${entries.length ? html`<span class="num">${n0(kcal)}</span> kcal · ${entries.length} ${entries.length === 1 ? "Eintrag" : "Einträge"}` : "Noch nichts eingetragen"}</div>
-        </div>
+        ${canToggle
+          ? html`<button type="button" class="meal-toggle" aria-expanded=${open} aria-controls=${`meal-${meal.id}`}
+              aria-label=${`${meal.name} ${open ? "einklappen" : "aufklappen"}`} onClick=${toggle}>
+              ${head}</button>`
+          : html`<div class="meal-toggle static">${head}</div>`}
         ${entries.length > 0 && html`<button class="icon-btn sm fill" aria-label=${`${meal.name} als Favorit speichern`}
           onClick=${() => openFavorite({ entries, meal: meal.id, d: day.d })}>${Icon.star()}</button>`}
         <button class="icon-btn sm fill" aria-label=${`Foto für ${meal.name}`} onClick=${() => { haptic(); openCamera({ meal: meal.id, d: day.d }); }}>${Icon.camera()}</button>
         <button class="icon-btn tint" aria-label=${`${meal.name} hinzufügen`} onClick=${() => { haptic(); openAdd(meal.id, day.d); }}>${Icon.plus()}</button>
       </div>
-      ${entries.length > 0 && html`<div class="entries">${entries.map((e) => html`<${EntryRow} key=${e[E.id]} entry=${e} d=${day.d}/>`)}</div>`}
+      ${entries.length > 0 && open && html`<div class="entries" id=${`meal-${meal.id}`}>${entries.map((e) => html`<${EntryRow} key=${e[E.id]} entry=${e} d=${day.d}/>`)}</div>`}
     </section>`;
 }
 

@@ -428,6 +428,12 @@ img { display: block; max-width: 100%; }
 .meal-emoji { width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; font-size: 23px; flex: none; }
 .meal-name { font-size: 17px; font-weight: 600; }
 .meal-sub { font-size: 13px; color: var(--text-2); }
+.meal-toggle { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.meal-toggle.static { cursor: default; }
+.meal-toggle .grow { min-width: 0; }
+.meal-chev { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 4px; vertical-align: -3px; color: var(--text-3); transition: transform .25s var(--spring); transform: rotate(90deg); }
+.meal-chev svg { width: 13px; height: 13px; stroke-width: 2.6; }
+.meal-card.collapsed .meal-chev { transform: rotate(0deg); }
 .entries { margin: 10px -16px -6px; }
 .entry {
   position: relative; overflow: hidden;
