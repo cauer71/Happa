@@ -488,6 +488,23 @@ img { display: block; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .glass-water { transition: none; } .glass-wave { animation: none; } }
 
 /* ── Schritte (rosa, bei 10.000 grün) ── */
+.steps-cal { --steps: #ec8fb0; --steps-soft: color-mix(in srgb, var(--steps) 14%, transparent); }
+.sc-week, .sc-row { display: grid; grid-template-columns: repeat(7, 1fr); justify-items: center; }
+.sc-week { margin-top: 4px; }
+.sc-day { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.sc-wd { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.sc-day.today .sc-wd { color: var(--text); }
+.sc-dot { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; background: var(--fill); transition: background .4s; }
+.sc-dot.big { width: 36px; height: 36px; font: 600 14px var(--font-round); color: var(--text-2); }
+.sc-dot.hit { background: var(--done); color: #fff; }
+.sc-dot.miss { background: color-mix(in srgb, var(--steps) 50%, transparent); color: color-mix(in srgb, var(--steps) 35%, var(--text)); }
+.sc-dot.future { background: none; box-shadow: inset 0 0 0 1.5px var(--fill-2); }
+.sc-dot.before { background: var(--fill); opacity: .6; }
+.sc-day.today .sc-dot.hit { box-shadow: 0 0 0 2px var(--card-solid), 0 0 0 4px var(--done); }
+.sc-day.today .sc-dot.miss { box-shadow: 0 0 0 2px var(--card-solid), 0 0 0 4px var(--steps); }
+.sc-past { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--sep); }
+.sc-foot { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 12px; font-size: 13px; color: var(--text-2); }
+.sc-foot b { color: var(--text); }
 .steps-card { --steps: #ec8fb0; --steps-soft: color-mix(in srgb, var(--steps) 14%, transparent); transition: background .6s, box-shadow .6s; }
 .steps-card.done { --steps: var(--done); --steps-soft: color-mix(in srgb, var(--steps) 16%, transparent);
   background: linear-gradient(160deg, color-mix(in srgb, var(--done) 16%, var(--card)), var(--card)); }

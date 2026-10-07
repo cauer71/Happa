@@ -1,6 +1,6 @@
-// Tab „Fortschritt“: Gewichtskurve, gegessen vs. verbraucht, Kalorien der Woche, Prognose, Serie, Abzeichen.
+// Tab „Fortschritt“: Schritte-Kalender, Gewichtskurve, gegessen vs. verbraucht, Kalorien der Woche, Prognose, Serie, Abzeichen.
 import { useState, useEffect } from "preact/hooks";
-import { html, cx, haptic, today, addDays, n0, n1, shortDate, weekdayShort, fromInt, monthYear, diffDays } from "../util.js";
+import { html, cx, haptic, today, addDays, mondayOf, n0, n1, shortDate, weekdayShort, fromInt, monthYear, diffDays } from "../util.js";
 import { Icon } from "../icons.js";
 import { useStore, loadRange, loadWeights, currentGoals, currentWeight, celebrate, toast, state } from "../store.js";
 import { Seg, NavBar, useScrolled, Empty } from "../ui.js";
@@ -36,6 +36,7 @@ export function ProgressView() {
       <header class="header"><h1 class="large-title">Fortschritt</h1></header>
       <div class="grid-2">
         <div class="stack fade-list">
+          <${StepsCalendar}/>
           <${WeightCard} weights=${weights} range=${range} setRange=${setRange}/>
           <${BalanceCard}/>
           <${ForecastCard} logged=${logged} avg=${avg}/>
@@ -66,6 +67,53 @@ export function ProgressView() {
         </div>
       </div>
     </main>`;
+}
+
+// ── Schritte-Kalender: oben die aktuelle Woche mit Wochentagen, darunter frühere Wochen nur als Punkte ──
+const STEP_GOAL = 10000; // wie auf „Heute“
+const STEP_WEEKS = 6;
+function StepsCalendar() {
+  const s = useStore();
+  const t = today();
+  const monday = mondayOf(t);
+  const first = addDays(monday, -7 * (STEP_WEEKS - 1));
+  useEffect(() => { loadRange(first, t).catch(() => {}); }, []);
+  const start = s.profile.startDate || 0;
+  const stateOf = (d) => {
+    if (d > t) return "future";
+    if (d < start) return "before";
+    return (s.days[d]?.steps || 0) >= STEP_GOAL ? "hit" : "miss";
+  };
+  const weeks = Array.from({ length: STEP_WEEKS }, (_, w) => {
+    const mon = addDays(monday, -7 * w);
+    return Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+  });
+  const thisWeek = weeks[0].filter((d) => stateOf(d) === "hit").length;
+  const all = weeks.flat().filter((d) => d <= t && d >= start);
+  const hits = all.filter((d) => stateOf(d) === "hit").length;
+  // Serie: Tage in Folge mit 10.000 (heute zählt mit, sobald geschafft)
+  let streak = 0;
+  for (let d = stateOf(t) === "hit" ? t : addDays(t, -1); stateOf(d) === "hit"; d = addDays(d, -1)) streak++;
+  const label = (d) => `${shortDate(d)}: ${n0(s.days[d]?.steps || 0)} Schritte`;
+  return html`
+    <section class="card steps-cal" aria-label="Schritte-Kalender">
+      <div class="card-title"><span class="icon-dot steps-dot">👟</span>10.000 Schritte</div>
+      <div class="sc-week">
+        ${weeks[0].map((d) => html`
+          <div class=${cx("sc-day", d === t && "today")} title=${label(d)}>
+            <span class="sc-wd">${weekdayShort(d)}</span>
+            <span class=${cx("sc-dot", "big", stateOf(d))}>${fromInt(d).getDate()}</span>
+          </div>`)}
+      </div>
+      <div class="sc-past" aria-label="Frühere Wochen">
+        ${weeks.slice(1).map((w) => html`<div class="sc-row">${w.map((d) => html`<span class=${cx("sc-dot", stateOf(d))} title=${label(d)}></span>`)}</div>`)}
+      </div>
+      <div class="sc-foot">
+        <span><b class="num">${thisWeek}</b> / 7 diese Woche</span>
+        <span><b class="num">${hits}</b> Tage in ${STEP_WEEKS} Wochen</span>
+        ${streak > 1 && html`<span>🔥 <b class="num">${streak}</b> in Folge</span>`}
+      </div>
+    </section>`;
 }
 
 // ── Gewicht ──
