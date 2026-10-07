@@ -65,10 +65,10 @@ export function ProfileView() {
             <div class="section-title">Körperdaten</div>
             <section class="card list">
               ${row("👤", "#8e8e93", "Name", p.name || "–", () => openBody())}
-              ${row("📏", "#34aadc", "Größe", `${p.height || "–"} cm`, () => openBody())}
-              ${row("🎂", "#ff9500", "Geburtsjahr", p.born || "–", () => openBody())}
-              ${row(act?.e || "🚶", "#5ac8fa", "Aktivität", act?.name || "–", () => openBody())}
-              ${row("❤️", "#ff2d55", "Apple Health (Test)", "Verbrauch", () => openHealth())}
+              ${row("📏", "#f2a65a", "Größe", `${p.height || "–"} cm`, () => openBody())}
+              ${row("🎂", "#f2c14e", "Geburtsjahr", p.born || "–", () => openBody())}
+              ${row(act?.e || "🚶", "#e88497", "Aktivität", act?.name || "–", () => openBody())}
+              ${row("❤️", "#d9677e", "Apple Health (Test)", "Verbrauch", () => openHealth())}
             </section>
           </div>
         </div>
@@ -88,7 +88,7 @@ export function ProfileView() {
             <div class="section-title">Daten</div>
             <section class="card list">
               <a class="list-row" href="/api/export" download="happa-export.json" style="color:inherit;text-decoration:none">
-                <span class="list-icon" style="background:#34c759">${Icon.download()}</span><span class="grow">Daten exportieren</span><span class="chev">${Icon.chevron()}</span>
+                <span class="list-icon" style="background:#e8806e">${Icon.download()}</span><span class="grow">Daten exportieren</span><span class="chev">${Icon.chevron()}</span>
               </a>
               <button class="list-row" onClick=${async () => { haptic(); await clearLocalData().catch(() => {}); location.href = "/cdn-cgi/access/logout"; }}>
                 <span class="list-icon" style="background:#8e8e93">${Icon.logout()}</span><span class="grow">Abmelden</span><span class="chev">${Icon.chevron()}</span>
@@ -103,7 +103,7 @@ export function ProfileView() {
             <div class="section-title">Hilfe</div>
             <section class="card list">
               <button class="list-row" onClick=${() => openHelp()}>
-                <span class="list-icon" style="background:#34aadc">${Icon.info()}</span>
+                <span class="list-icon" style="background:#f2a65a">${Icon.info()}</span>
                 <span class="grow">Hilfe und Anleitungen</span>
                 <span class="chev">${Icon.chevron()}</span>
               </button>

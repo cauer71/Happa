@@ -1,12 +1,12 @@
 // Ernährungslogik: Mahlzeiten, Kalorienziel, Summen, Abzeichen, Tipps, Symbole.
 
 export const MEALS = [
-  { id: 0, name: "Frühstück", emoji: "☕️", tint: "#ffb340" },
-  { id: 1, name: "Mittagessen", emoji: "🍝", tint: "#ff7a59" },
-  { id: 2, name: "Abendessen", emoji: "🥗", tint: "#5e8bff" },
-  { id: 3, name: "Snacks", emoji: "🍎", tint: "#2fc27b" },
+  { id: 0, name: "Frühstück", emoji: "☕️", tint: "#f2c14e" },
+  { id: 1, name: "Mittagessen", emoji: "🍝", tint: "#f29a6b" },
+  { id: 2, name: "Abendessen", emoji: "🥗", tint: "#e88497" },
+  { id: 3, name: "Snacks", emoji: "🍎", tint: "#d98fb5" },
   // Getränke über den Tag (Cappuccino, Tee …), keiner Mahlzeit zugeordnet
-  { id: 4, name: "Getränke", emoji: "🥤", tint: "#32ade6" },
+  { id: 4, name: "Getränke", emoji: "🥤", tint: "#6cb6e4" },
 ];
 
 export function mealForNow(date = new Date()) {

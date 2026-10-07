@@ -18,7 +18,7 @@ export function CoachLogo({ size = 30 }) {
   const id = "coachg" + (++logoId);
   const bold = size < 44;
   return html`<svg class="coach-logo" width=${size} height=${size} viewBox="0 0 512 512" aria-hidden="true">
-    <defs><linearGradient id=${id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16b377"/><stop offset=".5" stop-color="#0a8458"/><stop offset="1" stop-color="#07706f"/></linearGradient></defs>
+    <defs><linearGradient id=${id} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8806e"/><stop offset=".5" stop-color="#cf6658"/><stop offset="1" stop-color="#b8554d"/></linearGradient></defs>
     <rect width="512" height="512" rx="116" fill=${`url(#${id})`}/>
     <path d="M150 128v96a40 40 0 0 0 80 0v-96M190 128v96M190 264v136" fill="none" stroke="#fff" stroke-width=${bold ? 36 : 28} stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M340 118C340 187 363 210 432 210C363 210 340 233 340 302C340 233 317 210 248 210C317 210 340 187 340 118Z" fill="#fff"/>

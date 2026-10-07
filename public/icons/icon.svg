@@ -1,27 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#7CF5B0"/>
-      <stop offset=".5" stop-color="#1FCB8C"/>
-      <stop offset="1" stop-color="#0A9C9B"/>
+      <stop offset="0" stop-color="#FFCBAE"/>
+      <stop offset=".5" stop-color="#F3998A"/>
+      <stop offset="1" stop-color="#D9727A"/>
     </linearGradient>
     <radialGradient id="bgShine" cx=".22" cy=".08" r=".9">
       <stop offset="0" stop-color="#fff" stop-opacity=".26"/>
       <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
     </radialGradient>
     <radialGradient id="bgDeep" cx=".85" cy="1" r=".75">
-      <stop offset="0" stop-color="#05666A" stop-opacity=".28"/>
-      <stop offset="1" stop-color="#05666A" stop-opacity="0"/>
+      <stop offset="0" stop-color="#8E3B3B" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#8E3B3B" stop-opacity="0"/>
     </radialGradient>
 
     <linearGradient id="solid" gradientUnits="userSpaceOnUse" x1="280" y1="330" x2="460" y2="780">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#F1FFF8"/>
+      <stop offset="1" stop-color="#FFF6F1"/>
     </linearGradient>
     <!-- frosted glass body: bright top-left, slightly translucent toward bottom-right -->
     <linearGradient id="glass" gradientUnits="userSpaceOnUse" x1="300" y1="220" x2="720" y2="820">
       <stop offset="0" stop-color="#FFFFFF" stop-opacity=".97"/>
-      <stop offset="1" stop-color="#F2FFF9" stop-opacity=".80"/>
+      <stop offset="1" stop-color="#FFF5F0" stop-opacity=".80"/>
     </linearGradient>
     <linearGradient id="glassRing" gradientUnits="userSpaceOnUse" x1="250" y1="160" x2="780" y2="880">
       <stop offset="0" stop-color="#FFFFFF" stop-opacity=".96"/>
@@ -34,8 +34,8 @@
     </linearGradient>
     <!-- inner shade on bottom-right edges (glass thickness) -->
     <linearGradient id="shade" gradientUnits="userSpaceOnUse" x1="760" y1="820" x2="420" y2="380">
-      <stop offset="0" stop-color="#0A8F8C" stop-opacity=".38"/>
-      <stop offset=".6" stop-color="#0A8F8C" stop-opacity="0"/>
+      <stop offset="0" stop-color="#C0605C" stop-opacity=".38"/>
+      <stop offset=".6" stop-color="#C0605C" stop-opacity="0"/>
     </linearGradient>
     <!-- soft counter-light on the edge facing away from the light -->
     <linearGradient id="spec2" gradientUnits="userSpaceOnUse" x1="780" y1="840" x2="480" y2="460">
@@ -43,9 +43,9 @@
       <stop offset=".45" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
     <radialGradient id="pitG" gradientUnits="userSpaceOnUse" cx="563.6" cy="585.3" r="99.9">
-      <stop offset="0" stop-color="#6FF0B6"/>
-      <stop offset=".55" stop-color="#19B98C"/>
-      <stop offset="1" stop-color="#0A8C88"/>
+      <stop offset="0" stop-color="#FFD9A0"/>
+      <stop offset=".55" stop-color="#F4A86A"/>
+      <stop offset="1" stop-color="#D97C4E"/>
     </radialGradient>
 
     <path id="ring" d="M830.9 320.4A372 372 0 0 1 304 820.4A22 22 0 0 1 328.6 783.9A328 328 0 0 0 793.2 343.1A22 22 0 0 1 830.9 320.4ZM227 751.1A372 372 0 0 1 669.2 174.9A22 22 0 0 1 650.6 214.7A328 328 0 0 0 260.7 722.8A22 22 0 0 1 227 751.1Z"/>
@@ -74,7 +74,7 @@
 
   <!-- soft drop shadow, only outside the glass so the glass stays clean -->
   <g mask="url(#outside)">
-    <g filter="url(#soft)" fill="#04564F" opacity=".30" transform="translate(0 18)">
+    <g filter="url(#soft)" fill="#7A3030" opacity=".30" transform="translate(0 18)">
       <use xlink:href="#ring"/><use xlink:href="#fork"/><use xlink:href="#avo"/><use xlink:href="#leaf"/>
     </g>
   </g>
@@ -102,20 +102,20 @@
     <use xlink:href="#leaf" stroke="url(#shade)" stroke-width="12"/>
     <use xlink:href="#leaf" stroke="url(#spec2)" stroke-width="4"/>
   </g>
-  <g clip-path="url(#cLeaf)"><use xlink:href="#avo" fill="#05645C" opacity=".28" filter="url(#soft)" transform="translate(0 10)"/></g>
-  <path d="M673.4 327.4L740.9 255.4" fill="none" stroke="#17BE8E" stroke-opacity=".5" stroke-width="9" stroke-linecap="round"/>
+  <g clip-path="url(#cLeaf)"><use xlink:href="#avo" fill="#8E3B3B" opacity=".28" filter="url(#soft)" transform="translate(0 10)"/></g>
+  <path d="M673.4 327.4L740.9 255.4" fill="none" stroke="#E98A7E" stroke-opacity=".5" stroke-width="9" stroke-linecap="round"/>
 
   <!-- avocado -->
   <use xlink:href="#avo" fill="url(#glass)"/>
   <g clip-path="url(#cAvo)" fill="none">
-    <use xlink:href="#avo" stroke="#7FE8BC" stroke-opacity=".5" stroke-width="44"/>
+    <use xlink:href="#avo" stroke="#FFC2B0" stroke-opacity=".5" stroke-width="44"/>
     <use xlink:href="#avo" stroke="url(#spec)" stroke-width="9"/>
     <use xlink:href="#avo" stroke="url(#shade)" stroke-width="12"/>
     <use xlink:href="#avo" stroke="url(#spec2)" stroke-width="4"/>
   </g>
 
   <!-- pit: tinted glass bead -->
-  <circle cx="585.6" cy="619.3" r="74" fill="#067A70" opacity=".18" filter="url(#soft)"/>
+  <circle cx="585.6" cy="619.3" r="74" fill="#A0482F" opacity=".18" filter="url(#soft)"/>
   <use xlink:href="#pit" fill="url(#pitG)"/>
   <circle cx="585.6" cy="611.3" r="71" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="3"/>
   <ellipse cx="563.6" cy="583.3" rx="20" ry="12" transform="rotate(-35 563.6 583.3)" fill="#fff" opacity=".75"/>

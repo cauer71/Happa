@@ -248,7 +248,7 @@ function celebrationFx(canvas, big, opts = {}) {
   ctx.scale(dpr, dpr);
   const dark = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light"
     || document.documentElement.dataset.theme === "dark";
-  const colors = ["#36d67e", "#0fb3a5", "#ffb340", "#ff375f", "#8e5cff", "#0a9cff", "#f5b700"];
+  const colors = ["#f4a48f", "#f9c08f", "#f2c14e", "#e88497", "#ec8fb0", "#ffd6c4", "#c4566e"];
   const parts = [];
   const cx0 = W / 2, cy0 = H * 0.36;
   const sc = Math.max(1, Math.min(1.5, W / 520));
@@ -264,7 +264,7 @@ function celebrationFx(canvas, big, opts = {}) {
   const G = 0.16;
   const launch = () => {
     const apex = H * (0.12 + Math.random() * 0.28);
-    const hues = [145, 45, 350, 205, 275, 25];
+    const hues = [12, 28, 42, 350, 335, 200];
     parts.push({ k: "r", x: W * (0.15 + Math.random() * 0.7), y: H, vx: (Math.random() - 0.5) * 1.4,
       vy: -Math.sqrt(2 * G * (H - apex)), h: hues[(Math.random() * hues.length) | 0], age: 0 });
   };
@@ -290,7 +290,7 @@ function celebrationFx(canvas, big, opts = {}) {
         const px = p.x, py = p.y;
         p.vy += G; p.x += p.vx; p.y += p.vy;
         ctx.globalCompositeOperation = dark ? "lighter" : "source-over";
-        ctx.strokeStyle = `hsla(${p.h},100%,${dark ? 75 : 55}%,.9)`; ctx.lineWidth = 2.4;
+        ctx.strokeStyle = `hsla(${p.h},85%,${dark ? 78 : 62}%,.9)`; ctx.lineWidth = 2.4;
         ctx.beginPath(); ctx.moveTo(px - p.vx * 3, py - p.vy * 3); ctx.lineTo(p.x, p.y); ctx.stroke();
         if (p.vy >= -0.6) { explode(p); parts.splice(i, 1); }
         continue;
@@ -300,7 +300,7 @@ function celebrationFx(canvas, big, opts = {}) {
         const a = 1 - p.age / p.life;
         if (a <= 0) { parts.splice(i, 1); continue; }
         ctx.globalCompositeOperation = dark ? "lighter" : "source-over";
-        ctx.strokeStyle = `hsla(${p.h},100%,${dark ? 55 + 25 * a : 48 + 10 * a}%,${a})`;
+        ctx.strokeStyle = `hsla(${p.h},85%,${dark ? 60 + 20 * a : 56 + 10 * a}%,${a})`;
         ctx.lineWidth = 2.2 * a + 0.6;
         ctx.beginPath(); ctx.moveTo(p.px - p.vx * 2.5, p.py - p.vy * 2.5); ctx.lineTo(p.x, p.y); ctx.stroke();
         continue;

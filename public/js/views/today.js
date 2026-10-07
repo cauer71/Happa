@@ -488,7 +488,7 @@ function WeightCard({ d, day }) {
       </div>
       <div class="row" style="margin-top:10px;align-items:baseline;gap:10px">
         <div class="kpi">${shown ? n1(shown) : "–"} <small>kg</small></div>
-        ${shown && start && Math.abs(delta) >= 0.05 && html`<div style=${`font-weight:600;font-size:15px;color:${good ? "var(--accent-text)" : "var(--over-b)"}`}>
+        ${shown && start && Math.abs(delta) >= 0.05 && html`<div style=${`font-weight:600;font-size:15px;color:${good ? "var(--good)" : "var(--over-b)"}`}>
           ${delta <= 0 ? "−" : "+"}${n1(Math.abs(delta))} kg seit Start</div>`}
         ${shown && start && Math.abs(delta) < 0.05 && html`<div class="muted" style="font-weight:600;font-size:15px">Startgewicht</div>`}
       </div>

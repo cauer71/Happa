@@ -114,7 +114,7 @@ export const storage = {
 export const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Erscheinungsbild: automatisch / hell / dunkel – auch die Farbe der Statusleiste folgt
-const THEME_COLORS = { light: "#eef1f5", dark: "#000000" };
+const THEME_COLORS = { light: "#fbf3ef", dark: "#000000" };
 export function applyTheme(theme) {
   const root = document.documentElement;
   const metas = document.querySelectorAll('meta[name="theme-color"]');

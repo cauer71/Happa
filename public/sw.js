@@ -2,7 +2,7 @@
 // - App-Dateien (Seite, JS, CSS): zuerst übers Netz (neue Version sofort), offline aus dem Cache
 // - Lebensmitteldaten und Symbole: aus dem Cache, im Hintergrund aktualisieren
 // - /api/ und /cdn-cgi/ nie cachen (Anmeldung!)
-const CACHE = "happa-v25";
+const CACHE = "happa-v26";
 const SHELL = [
   "/", "/css/app.css", "/js/app.js", "/js/util.js", "/js/icons.js", "/js/api.js", "/js/store.js", "/js/ui.js",
   "/js/nutrition.js", "/js/foods.js", "/js/thumbs.js", "/js/claude.js",

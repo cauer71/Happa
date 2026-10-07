@@ -89,7 +89,7 @@ function WeightCard({ weights, range, setRange }) {
       </div>
       <div class="row" style="gap:22px;margin:12px 0 4px;align-items:flex-end">
         <div><div class="kpi">${n1(current)}<small> kg</small></div><div class="muted" style="font-size:13px">aktuell</div></div>
-        <div><div class="kpi" style=${`color:${Math.abs(lost) < 0.05 ? "var(--text)" : (goal && goal > start ? lost < 0 : lost > 0) ? "var(--accent-text)" : "var(--over-b)"}`}>${Math.abs(lost) < 0.05 ? "±" : lost > 0 ? "−" : "+"}${n1(Math.abs(lost))}<small> kg</small></div><div class="muted" style="font-size:13px">seit Start</div></div>
+        <div><div class="kpi" style=${`color:${Math.abs(lost) < 0.05 ? "var(--text)" : (goal && goal > start ? lost < 0 : lost > 0) ? "var(--good)" : "var(--over-b)"}`}>${Math.abs(lost) < 0.05 ? "±" : lost > 0 ? "−" : "+"}${n1(Math.abs(lost))}<small> kg</small></div><div class="muted" style="font-size:13px">seit Start</div></div>
         ${goal ? html`<div><div class="kpi">${toGo > 0 ? n1(toGo) : "0"}<small> kg</small></div><div class="muted" style="font-size:13px">bis zum Ziel</div></div>` : null}
       </div>
       ${goal && start > goal ? html`

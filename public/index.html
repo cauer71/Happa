@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
   <title>Happa</title>
   <meta name="description" content="Happa – Kalorien zählen mit Foto-Erkennung">
-  <meta name="theme-color" content="#eef1f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#fbf3ef" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -54,7 +54,7 @@
       box.innerHTML = "<div>Happa startet gerade nicht.</div>";
       var b = document.createElement("button");
       b.textContent = "Neu laden";
-      b.style.cssText = "height:44px;padding:0 22px;border:0;border-radius:22px;background:#14b87c;color:#fff;font:600 16px -apple-system,sans-serif";
+      b.style.cssText = "height:44px;padding:0 22px;border:0;border-radius:22px;background:#bf5b52;color:#fff;font:600 16px -apple-system,sans-serif";
       b.onclick = function () {
         var jobs = [];
         if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (r) { return Promise.all(r.map(function (x) { return x.unregister(); })); }));
