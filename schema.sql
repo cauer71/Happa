@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS days (
   ai     INTEGER NOT NULL DEFAULT 0,          -- KI-Erkennungen an diesem Tag (Tageslimit)
   act    TEXT,                                -- Verbrauch aus Apple Health (JSON, siehe worker/health.js)
   train  TEXT,                                -- Trainingsplan: [[id, Sportart, Titel, Minuten, "HH:MM", erledigt], ...]
+  steps  INTEGER NOT NULL DEFAULT 0,          -- Schritte von Hand gezählt (Knöpfe à 1.000)
   PRIMARY KEY (uid, d)
 ) WITHOUT ROWID;
 
@@ -29,3 +30,4 @@ CREATE TABLE IF NOT EXISTS health_keys (
 -- Bestehende Datenbank nachrüsten (einmalig):
 --   ALTER TABLE days ADD COLUMN act TEXT;
 --   ALTER TABLE days ADD COLUMN train TEXT;
+--   ALTER TABLE days ADD COLUMN steps INTEGER NOT NULL DEFAULT 0;

@@ -1,9 +1,9 @@
-// Tab „Heute“: Wochenleiste, Kalorienring, Mahlzeiten, Wasser, Gewicht, Tipp.
+// Tab „Heute“: Wochenleiste, Kalorienring, Wasser, Schritte, Mahlzeiten, Gewicht, Tipp.
 import { useState, useRef, useEffect, useLayoutEffect } from "preact/hooks";
 import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, liters, initials, shortDate, reduceMotion, storage } from "../util.js";
 import { Icon } from "../icons.js";
-import { useStore, selectDay, loadRange, setWater, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state } from "../store.js";
-import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled } from "../ui.js";
+import { useStore, selectDay, loadRange, setWater, setSteps, deleteWithUndo, toast, currentGoals, setTab, emptyDay, state } from "../store.js";
+import { Ring, Bar, Thumb, CountUp, NavBar, useScrolled, fireworks } from "../ui.js";
 import { MEALS, totals, tipFor, E, unitOf } from "../nutrition.js";
 import { openAdd } from "./add.js";
 import { openEntry } from "./entry.js";
@@ -39,6 +39,7 @@ export function TodayView() {
     energy: html`<${EnergyCard} day=${day} isToday=${d === s.today}/>`,
     meals: MEALS.map((m) => html`<${MealCard} key=${m.id} meal=${m} day=${day} kcal=${t.meals[m.id] || 0}/>`),
     water: html`<${WaterCard} day=${day} goal=${g.water}/>`,
+    steps: html`<${StepsCard} day=${day}/>`,
     weight: html`<${WeightCard} d=${d} day=${day}/>`,
     tip: html`<${TipCard} d=${d}/>`,
   };
@@ -65,11 +66,11 @@ export function TodayView() {
 
       ${wide ? html`
         <div class="grid-2" style="margin-top:14px">
-          <div class="stack">${cards.kcal}${cards.energy}${cards.claude}${cards.water}${cards.weight}${cards.tip}</div>
-          <div class="stack">${cards.meals}</div>
+          <div class="stack">${cards.kcal}${cards.energy}${cards.claude}${cards.weight}${cards.tip}</div>
+          <div class="stack">${cards.water}${cards.steps}${cards.meals}</div>
         </div>` : html`
         <div class="stack fade-list" style="margin-top:14px">
-          ${cards.kcal}${cards.energy}${cards.claude}${cards.meals}${cards.water}${cards.weight}${cards.tip}
+          ${cards.kcal}${cards.energy}${cards.claude}${cards.water}${cards.steps}${cards.meals}${cards.weight}${cards.tip}
         </div>`}
     </main>`;
 }
@@ -388,6 +389,8 @@ function WaterCard({ day, goal }) {
     const next = i < filled ? i * cup : (i + 1) * cup;
     setWater(day.d, next);
     if (next >= goal && day.water < goal) toast("Wasserziel erreicht!", "💧");
+    // Jeder volle Liter: kleines Feuerwerk
+    if (Math.floor(next / 1000) > Math.floor(day.water / 1000)) { haptic("success"); fireworks(1100); }
   };
   return html`
     <section class="card" aria-label="Wasser">
@@ -400,6 +403,38 @@ function WaterCard({ day, goal }) {
         ${Array.from({ length: count }, (_, i) => html`
           <button class=${cx("cup", i < filled && "full", i === filled && "next")} aria-label=${`Glas ${i + 1} (${(i + 1) * cup} ml)`}
             aria-pressed=${i < filled} onClick=${() => tap(i)}></button>`)}
+      </div>
+    </section>`;
+}
+
+// ── Schritte (von Hand, ein Knopf = 1.000) ──
+const STEP = 1000, STEP_GOAL = 10000;
+function StepsCard({ day }) {
+  const steps = day.steps || 0;
+  const filled = Math.floor(steps / STEP);
+  const count = Math.min(20, Math.max(STEP_GOAL / STEP, filled + 1));
+  const done = steps >= STEP_GOAL;
+  const tap = (i) => {
+    haptic();
+    const next = i < filled ? i * STEP : (i + 1) * STEP;
+    setSteps(day.d, next);
+    if (next >= STEP_GOAL && steps < STEP_GOAL) {
+      haptic("big");
+      fireworks(3000, { confetti: 120 });
+      toast("10.000 Schritte geschafft!", "🎉");
+    }
+  };
+  return html`
+    <section class=${cx("card", "steps-card", done && "done")} aria-label="Schritte">
+      <div class="row between">
+        <div class="card-title" style="margin:0"><span class="icon-dot steps-dot">👟</span>Schritte</div>
+        <div><span class="kpi" style="font-size:22px">${n0(steps)}</span> <span class="muted" style="font-size:15px">/ ${n0(STEP_GOAL)}</span></div>
+      </div>
+      <div class="muted" style="font-size:13px;margin-top:2px">${done ? "Ziel geschafft – super! 🎉" : `ein Knopf = ${n0(STEP)} Schritte`}</div>
+      <div class="step-grid">
+        ${Array.from({ length: count }, (_, i) => html`
+          <button class=${cx("step-btn", i < filled && "full", i === filled && "next")} aria-label=${`${n0((i + 1) * STEP)} Schritte`}
+            aria-pressed=${i < filled} onClick=${() => tap(i)}>${n0((i + 1) * STEP)}</button>`)}
       </div>
     </section>`;
 }

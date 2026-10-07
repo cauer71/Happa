@@ -58,7 +58,7 @@ export function setTab(tab) {
   history.replaceState(history.state, "", "#" + tab);
 }
 
-export const emptyDay = (d) => ({ d, log: [], water: 0, weight: null, ai: 0 });
+export const emptyDay = (d) => ({ d, log: [], water: 0, steps: 0, weight: null, ai: 0 });
 const putDay = (day) => set({ days: { ...state.days, [day.d]: day } });
 
 // ── Overlays (Sheets, Kamera) mit Zurück-Taste ──
@@ -214,8 +214,11 @@ setInterval(() => refreshFromServer(55000), 60000);
 // den lokalen Stand nicht.
 const pending = {};
 const seq = {};
-const waterTimers = {};
-const busy = (d) => (pending[d] || 0) > 0 || !!waterTimers[d];
+// Zähler (Wasser, Schritte) mit verzögertem Speichern; Schlüssel „Tag:Feld“
+const counterTimers = {};
+const COUNTERS = ["water", "steps"];
+const counting = (d) => COUNTERS.some((f) => counterTimers[`${d}:${f}`]);
+const busy = (d) => (pending[d] || 0) > 0 || counting(d);
 
 export async function loadDay(d, force = false) {
   if (state.days[d] && !force) return state.days[d];
@@ -277,7 +280,8 @@ async function mutateDay(d, apply, undo, request) {
     pending[d]--;
     if (!pending[d] && seq[d] === my) {
       const cur = state.days[d];
-      const day = { ...res.day, water: waterTimers[d] ? cur.water : res.day.water };
+      const day = { ...res.day };
+      for (const f of COUNTERS) if (counterTimers[`${d}:${f}`]) day[f] = cur[f];
       putDay(day);
       markLogged(day);
     }
@@ -364,24 +368,28 @@ export async function deleteWithUndo(d, id) {
   });
 }
 
-// Wasser: schnelles Tippen wird gebündelt, gespeichert wird der letzte Stand.
+// Wasser und Schritte: schnelles Tippen wird gebündelt, gespeichert wird der letzte Stand.
 // Die Antwort des Servers überschreibt den lokalen Wert nicht (neuere Tipper gewinnen).
-export function setWater(d, ml) {
+function setCounter(d, field, value) {
   const day = state.days[d] || emptyDay(d);
-  putDay({ ...day, water: Math.max(0, ml) });
-  clearTimeout(waterTimers[d]);
-  waterTimers[d] = setTimeout(async () => {
-    const value = state.days[d].water;
+  putDay({ ...day, [field]: Math.max(0, value) });
+  const key = `${d}:${field}`;
+  clearTimeout(counterTimers[key]);
+  counterTimers[key] = setTimeout(async () => {
+    const v = state.days[d][field];
     try {
-      await api(`/days/${d}`, { method: "PUT", body: { water: value } });
-      if (state.days[d].water === value) delete waterTimers[d];
-      checkBadges(d);
+      await api(`/days/${d}`, { method: "PUT", body: { [field]: v } });
+      if (state.days[d][field] === v) delete counterTimers[key];
+      if (field === "water") checkBadges(d);
     } catch (err) {
-      delete waterTimers[d];
+      delete counterTimers[key];
       toast(err.message, "⚠️");
     }
   }, 700);
 }
+export const setWater = (d, ml) => setCounter(d, "water", ml);
+// Schritte von Hand (unabhängig von Apple Health)
+export const setSteps = (d, n) => setCounter(d, "steps", n);
 
 export async function loadWeights() {
   if (state.weights) return state.weights;

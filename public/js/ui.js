@@ -224,8 +224,22 @@ export function Celebrate() {
     <canvas id="confetti" ref=${canvas}></canvas>`;
 }
 
+// Kleines Feuerwerk ohne Dialog (z. B. jeder volle Liter Wasser, 10.000 Schritte).
+// ms: wie lange Raketen starten; confetti: Anzahl Konfetti-Teile dazu.
+export function fireworks(ms = 1200, { confetti = 0 } = {}) {
+  if (reduceMotion()) return;
+  const canvas = document.createElement("canvas");
+  canvas.className = "fx-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+  document.body.appendChild(canvas);
+  // Sicherheitsnetz: läuft die App im Hintergrund, pausieren die Animationen
+  const done = () => { clearTimeout(t); canvas.remove(); };
+  const stop = celebrationFx(canvas, false, { fireworks: ms, confetti, onDone: done });
+  const t = setTimeout(() => { stop(); canvas.remove(); }, ms + 10000);
+}
+
 // Konfetti-Burst aus der Mitte; mit big zusätzlich gut 3 s Feuerwerk.
-function celebrationFx(canvas, big) {
+function celebrationFx(canvas, big, opts = {}) {
   const ctx = canvas.getContext("2d");
   const dpr = Math.min(2, devicePixelRatio || 1);
   const W = innerWidth, H = innerHeight;
@@ -262,8 +276,8 @@ function celebrationFx(canvas, big) {
     }
   };
 
-  confetti(Math.round((big ? 80 : 110) + W / (big ? 10 : 8)));
-  const fwUntil = big ? performance.now() + 3200 : 0;
+  confetti(opts.confetti ?? Math.round((big ? 80 : 110) + W / (big ? 10 : 8)));
+  const fwUntil = performance.now() + (opts.fireworks ?? (big ? 3200 : 0));
   let nextRocket = 0, raf;
   const tick = () => {
     const now = performance.now();
@@ -301,7 +315,7 @@ function celebrationFx(canvas, big) {
       ctx.restore(); ctx.globalAlpha = 1;
     }
     if (parts.length || now < fwUntil) raf = requestAnimationFrame(tick);
-    else ctx.clearRect(0, 0, W, H);
+    else { ctx.clearRect(0, 0, W, H); opts.onDone?.(); }
   };
   raf = requestAnimationFrame(tick);
   return () => { cancelAnimationFrame(raf); ctx.clearRect(0, 0, W, H); };

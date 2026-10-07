@@ -81,9 +81,9 @@ function cleanEntry(e) {
 
 // act: Verbrauch aus Apple Health (Health Auto Export), siehe worker/health.js
 const dayOut = (row, d) => row
-  ? { d: row.d, log: JSON.parse(row.log || "[]"), water: row.water || 0, weight: row.weight ?? null, ai: row.ai || 0,
+  ? { d: row.d, log: JSON.parse(row.log || "[]"), water: row.water || 0, steps: row.steps || 0, weight: row.weight ?? null, ai: row.ai || 0,
       act: row.act ? JSON.parse(row.act) : null, train: row.train ? JSON.parse(row.train) : [] }
-  : { d, log: [], water: 0, weight: null, ai: 0, act: null, train: [] };
+  : { d, log: [], water: 0, steps: 0, weight: null, ai: 0, act: null, train: [] };
 
 // Trainingsplan: [id, Sportart, Titel, Minuten, "HH:MM", manuell erledigt 0/1]
 function cleanTraining(list) {
@@ -140,7 +140,7 @@ async function handleMe(env, email, url) {
   const today = dayParam(url.searchParams.get("d"));
   const user = await userRow(env, email, true);
   const [dayRes, loggedRes, weightRes, countRes] = await env.DB.batch([
-    env.DB.prepare("SELECT d, log, water, weight, ai, act, train FROM days WHERE uid = ? AND d = ?").bind(user.id, today),
+    env.DB.prepare("SELECT d, log, water, steps, weight, ai, act, train FROM days WHERE uid = ? AND d = ?").bind(user.id, today),
     env.DB.prepare("SELECT d FROM days WHERE uid = ? AND d <= ? AND log != '[]' ORDER BY d DESC LIMIT 400").bind(user.id, today),
     env.DB.prepare("SELECT d, weight FROM days WHERE uid = ? AND weight IS NOT NULL ORDER BY d DESC LIMIT 1").bind(user.id),
     // Anzahl aller Einträge (für das Abzeichen „100 Einträge“)
@@ -188,7 +188,7 @@ async function handleAddEntries(request, env, email, d) {
   const have = new Set(existing ? JSON.parse(existing.log).map((e) => e[0]) : []);
   const fresh = entries.filter((e) => !have.has(e[0]));
   if (!fresh.length) {
-    const row = await env.DB.prepare("SELECT d, log, water, weight, ai, act, train FROM days WHERE uid = ? AND d = ?").bind(uid, d).first();
+    const row = await env.DB.prepare("SELECT d, log, water, steps, weight, ai, act, train FROM days WHERE uid = ? AND d = ?").bind(uid, d).first();
     return json({ day: dayOut(row, d) });
   }
 
@@ -197,7 +197,7 @@ async function handleAddEntries(request, env, email, d) {
   const row = await env.DB.prepare(
     `INSERT INTO days (uid, d, log) VALUES (?1, ?2, json_array(${refs.join(", ")}))
      ON CONFLICT(uid, d) DO UPDATE SET log = json_insert(days.log, ${refs.map((r) => `'$[#]', ${r}`).join(", ")})
-     RETURNING d, log, water, weight, ai, act, train`
+     RETURNING d, log, water, steps, weight, ai, act, train`
   ).bind(uid, d, ...params).first();
   return json({ day: dayOut(row, d) }, 201);
 }
@@ -268,7 +268,7 @@ async function handleApi(request, env, ctx, url, email) {
   if (path === "/api/export" && method === "GET") {
     const user = await userRow(env, email, true);
     const { results } = await env.DB.prepare(
-      "SELECT d, log, water, weight, act, train FROM days WHERE uid = ? ORDER BY d"
+      "SELECT d, log, water, steps, weight, act, train FROM days WHERE uid = ? ORDER BY d"
     ).bind(user.id).all();
     return json({
       app: "Happa", exported: new Date().toISOString(), email,
@@ -285,7 +285,7 @@ async function handleApi(request, env, ctx, url, email) {
     if (to < from) throw new HttpError(400, "Zeitraum ungültig");
     const uid = await userId(env, email);
     const { results } = await env.DB.prepare(
-      "SELECT d, log, water, weight, ai, act, train FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d LIMIT 400"
+      "SELECT d, log, water, steps, weight, ai, act, train FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d LIMIT 400"
     ).bind(uid, from, to).all();
     return json({ days: results.map((r) => dayOut(r, r.d)) });
   }
@@ -303,16 +303,18 @@ async function handleApi(request, env, ctx, url, email) {
     const d = dayParam(m[1]);
     const data = await body(request);
     const water = data.water === undefined ? null : Math.round(clamp(data.water, 0, 20000));
+    const steps = data.steps === undefined ? null : Math.round(clamp(data.steps, 0, 100000));
     const hasWeight = data.weight !== undefined;
     const weight = data.weight === null || !hasWeight ? null : r1(clamp(data.weight, 20, 400));
     const uid = await userId(env, email);
     const row = await env.DB.prepare(
-      `INSERT INTO days (uid, d, water, weight) VALUES (?1, ?2, COALESCE(?3, 0), ?4)
+      `INSERT INTO days (uid, d, water, weight, steps) VALUES (?1, ?2, COALESCE(?3, 0), ?4, COALESCE(?6, 0))
        ON CONFLICT(uid, d) DO UPDATE SET
          water = COALESCE(?3, days.water),
+         steps = COALESCE(?6, days.steps),
          weight = CASE WHEN ?5 THEN ?4 ELSE days.weight END
-       RETURNING d, log, water, weight, ai, act, train`
-    ).bind(uid, d, water, weight, hasWeight ? 1 : 0).first();
+       RETURNING d, log, water, steps, weight, ai, act, train`
+    ).bind(uid, d, water, weight, hasWeight ? 1 : 0, steps).first();
     // Nach dem Entfernen einer Wiegung gleich die neue letzte mitliefern
     const extra = hasWeight && weight === null ? { lastWeight: await lastWeight(env, uid) } : {};
     return json({ day: dayOut(row, d), ...extra });
@@ -326,7 +328,7 @@ async function handleApi(request, env, ctx, url, email) {
     const row = await env.DB.prepare(
       `INSERT INTO days (uid, d, train) VALUES (?1, ?2, ?3)
        ON CONFLICT(uid, d) DO UPDATE SET train = ?3
-       RETURNING d, log, water, weight, ai, act, train`
+       RETURNING d, log, water, steps, weight, ai, act, train`
     ).bind(uid, d, train).first();
     return json({ day: dayOut(row, d) });
   }
@@ -350,7 +352,7 @@ async function handleApi(request, env, ctx, url, email) {
             json(?4))
          WHERE uid = ?1 AND d = ?2
            AND EXISTS (SELECT 1 FROM json_each(days.log) WHERE json_extract(value, '$[0]') = ?3)
-         RETURNING d, log, water, weight, ai, act, train`
+         RETURNING d, log, water, steps, weight, ai, act, train`
       ).bind(uid, d, id, JSON.stringify(entry)).first();
       if (!row) throw new HttpError(404, "Eintrag nicht gefunden");
       return json({ day: dayOut(row, d) });
@@ -362,7 +364,7 @@ async function handleApi(request, env, ctx, url, email) {
         `UPDATE days SET log = (SELECT COALESCE(json_group_array(json(value)), '[]')
             FROM json_each(days.log) WHERE json_extract(value, '$[0]') != ?3)
          WHERE uid = ?1 AND d = ?2
-         RETURNING d, log, water, weight, ai, act, train`
+         RETURNING d, log, water, steps, weight, ai, act, train`
       ).bind(uid, d, id).first();
       return json({ day: dayOut(row, d) });
     }

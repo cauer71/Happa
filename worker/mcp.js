@@ -61,9 +61,9 @@ async function loadUser(env, email) {
 }
 async function loadDays(env, uid, from, to) {
   const { results } = await env.DB.prepare(
-    "SELECT d, log, water, weight, act FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d"
+    "SELECT d, log, water, steps, weight, act FROM days WHERE uid = ? AND d BETWEEN ? AND ? ORDER BY d"
   ).bind(uid, from, to).all();
-  return results.map((r) => ({ d: r.d, log: JSON.parse(r.log || "[]"), water: r.water || 0, weight: r.weight ?? null, act: r.act ? JSON.parse(r.act) : null }));
+  return results.map((r) => ({ d: r.d, log: JSON.parse(r.log || "[]"), water: r.water || 0, steps: r.steps || 0, weight: r.weight ?? null, act: r.act ? JSON.parse(r.act) : null }));
 }
 async function loadWeights(env, uid, from) {
   const { results } = await env.DB.prepare(
@@ -361,6 +361,7 @@ async function toolDay(env, email, args) {
     ziel: g,
     noch_uebrig: g ? { kcal: g.kcal - t.kcal, eiweiss_g: g.eiweiss_g - t.eiweiss_g, kh_g: g.kh_g - t.kh_g, fett_g: g.fett_g - t.fett_g } : null,
     wasser_ml: day ? day.water : 0,
+    schritte_von_hand: day ? day.steps : 0,
     gewicht_kg: day ? day.weight : null,
     verbrauch_apple_health: verbrauch(day?.act),
   };
