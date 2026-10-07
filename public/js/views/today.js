@@ -1,4 +1,4 @@
-// Tab „Heute“: Wochenleiste, Kalorienring, Wasser, Schritte, Mahlzeiten, Gewicht, Tipp.
+// Tab „Heute“: Wochenleiste, Schritte, Kalorienring, Wasser, Mahlzeiten, Gewicht, Tipp.
 import { useState, useRef, useEffect, useLayoutEffect } from "preact/hooks";
 import { html, cx, haptic, today, addDays, diffDays, mondayOf, dayTitle, longDate, weekdayShort, n0, n1, liters, initials, shortDate, reduceMotion, storage } from "../util.js";
 import { Icon } from "../icons.js";
@@ -66,11 +66,11 @@ export function TodayView() {
 
       ${wide ? html`
         <div class="grid-2" style="margin-top:14px">
-          <div class="stack">${cards.kcal}${cards.energy}${cards.claude}${cards.weight}${cards.tip}</div>
-          <div class="stack">${cards.water}${cards.steps}${cards.meals}</div>
+          <div class="stack">${cards.steps}${cards.kcal}${cards.energy}${cards.claude}${cards.weight}${cards.tip}</div>
+          <div class="stack">${cards.water}${cards.meals}</div>
         </div>` : html`
         <div class="stack fade-list" style="margin-top:14px">
-          ${cards.kcal}${cards.energy}${cards.claude}${cards.water}${cards.steps}${cards.meals}${cards.weight}${cards.tip}
+          ${cards.steps}${cards.kcal}${cards.energy}${cards.claude}${cards.water}${cards.meals}${cards.weight}${cards.tip}
         </div>`}
     </main>`;
 }
@@ -411,31 +411,42 @@ function WaterCard({ day, goal }) {
 const STEP = 1000, STEP_GOAL = 10000;
 function StepsCard({ day }) {
   const steps = day.steps || 0;
-  const filled = Math.floor(steps / STEP);
-  const count = Math.min(20, Math.max(STEP_GOAL / STEP, filled + 1));
+  const goalSteps = STEP_GOAL / STEP;
+  const filled = Math.min(goalSteps, Math.floor(steps / STEP));
   const done = steps >= STEP_GOAL;
-  const tap = (i) => {
+  const set = (next) => {
     haptic();
-    const next = i < filled ? i * STEP : (i + 1) * STEP;
-    setSteps(day.d, next);
+    setSteps(day.d, Math.max(0, next));
     if (next >= STEP_GOAL && steps < STEP_GOAL) {
       haptic("big");
       fireworks(3000, { confetti: 120 });
       toast("10.000 Schritte geschafft!", "🎉");
     }
   };
+  // Wie bei den Wassergläsern: Tipp auf ein volles Feld setzt auf dessen Anfang zurück
+  const tap = (i) => set(i < filled ? i * STEP : (i + 1) * STEP);
   return html`
     <section class=${cx("card", "steps-card", done && "done")} aria-label="Schritte">
       <div class="row between">
         <div class="card-title" style="margin:0"><span class="icon-dot steps-dot">👟</span>Schritte</div>
         <div><span class="kpi" style="font-size:22px">${n0(steps)}</span> <span class="muted" style="font-size:15px">/ ${n0(STEP_GOAL)}</span></div>
       </div>
-      <div class="muted" style="font-size:13px;margin-top:2px">${done ? "Ziel geschafft – super! 🎉" : `ein Knopf = ${n0(STEP)} Schritte`}</div>
-      <div class="step-grid">
-        ${Array.from({ length: count }, (_, i) => html`
-          <button class=${cx("step-btn", i < filled && "full", i === filled && "next")} aria-label=${`${n0((i + 1) * STEP)} Schritte`}
-            aria-pressed=${i < filled} onClick=${() => tap(i)}>${n0((i + 1) * STEP)}</button>`)}
+      <div class="step-trail" role="group" aria-label=${`Schritte zählen, ein Feld = ${n0(STEP)}`}>
+        ${Array.from({ length: goalSteps }, (_, i) => html`
+          <button class=${cx("step-btn", i < filled && "full", i === filled && "next")}
+            aria-label=${`${n0((i + 1) * STEP)} Schritte`} aria-pressed=${i < filled} onClick=${() => tap(i)}>
+            ${i < filled && html`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 3.5c1.9 0 2.9 2 2.8 4.4-.1 2.2-1 3.6-1.2 5.2-.2 1.4-1 2.1-2.2 2-1.4-.1-2-1-2.1-2.5C5.3 9.9 5.6 3.5 8.2 3.5zM7.3 16.3c1.2 0 2 .7 2 2s-.8 2.4-2.1 2.4-2-1.1-2-2.3.9-2.1 2.1-2.1zM16 6.5c2.5 0 2.8 6.4 2.7 9.1-.1 1.5-.7 2.4-2.1 2.5-1.2.1-2-.6-2.2-2-.2-1.6-1.1-3-1.2-5.2-.1-2.4.9-4.4 2.8-4.4z"/></svg>`}
+          </button>`)}
       </div>
+      <div class="step-scale" aria-hidden="true"><span>0</span><span>5.000</span><span>10.000</span></div>
+      ${done ? html`
+        <div class="row between step-extra">
+          <span>Ziel geschafft – super! 🎉</span>
+          <span class="row" style="gap:6px">
+            ${steps > STEP_GOAL && html`<button class="step-more ghost" aria-label="1.000 Schritte weniger" onClick=${() => set(steps - STEP)}>−</button>`}
+            <button class="step-more" onClick=${() => set(steps + STEP)}>+ 1.000</button>
+          </span>
+        </div>` : html`<div class="muted step-hint">Ein Feld = ${n0(STEP)} Schritte</div>`}
     </section>`;
 }
 
