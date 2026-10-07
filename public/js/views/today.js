@@ -402,9 +402,27 @@ function WaterCard({ day, goal }) {
       <div class="cups" style=${`grid-template-columns:repeat(${count <= 8 ? count : Math.ceil(count / 2)},1fr)`}>
         ${Array.from({ length: count }, (_, i) => html`
           <button class=${cx("cup", i < filled && "full", i === filled && "next")} aria-label=${`Glas ${i + 1} (${(i + 1) * cup} ml)`}
-            aria-pressed=${i < filled} onClick=${() => tap(i)}></button>`)}
+            aria-pressed=${i < filled} onClick=${() => tap(i)}><${Glass} id=${i} next=${i === filled}/></button>`)}
       </div>
     </section>`;
+}
+
+// Ein Trinkglas: leer nur der Umriss, gefüllt steigt das Wasser mit kleiner Welle hoch
+const GLASS = "M5 4h30l-3.6 42.2A4 4 0 0 1 27.4 50H12.6a4 4 0 0 1-4-3.8z";
+function Glass({ id, next }) {
+  return html`
+    <svg class="tumbler" viewBox="0 0 40 54" aria-hidden="true">
+      <defs><clipPath id=${`glass-clip-${id}`}><path d=${GLASS}/></clipPath></defs>
+      <g clip-path=${`url(#glass-clip-${id})`}>
+        <path class="glass-body" d=${GLASS}/>
+        <g class="glass-water">
+          <path class="glass-wave" d="M-40 12q5-3 10 0t10 0 10 0 10 0 10 0 10 0 10 0 10 0V60H-40z"/>
+        </g>
+      </g>
+      <path class="glass-rim" d=${GLASS}/>
+      <path class="glass-shine" d="M10.5 9l2.4 30"/>
+      ${next && html`<text class="glass-plus" x="20" y="33" text-anchor="middle">+</text>`}
+    </svg>`;
 }
 
 // ── Schritte (von Hand, ein Knopf = 1.000) ──
