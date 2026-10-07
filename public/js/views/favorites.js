@@ -18,6 +18,13 @@ const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
 
 export const favorites = () => (Array.isArray(state.profile.favorites) ? state.profile.favorites : []);
 const per100 = (it) => { const g = it[1] || 100; return { kcal: it[2] * 100 / g, protein: it[3] * 100 / g, carbs: it[4] * 100 / g, fat: it[5] * 100 / g }; };
+// Favorit, der genau diese Einträge enthält (gleiche Namen und Mengen), sonst null
+const itemKey = (name, amount) => `${String(name).trim().toLowerCase()}|${Math.round((amount || 0) * 10)}`;
+export function favoriteFor(entries) {
+  if (!entries.length) return null;
+  const want = entries.map((e) => itemKey(e[E.name], e[E.grams])).sort().join("\n");
+  return favorites().find((f) => f.items.length === entries.length && f.items.map((it) => itemKey(it[0], it[1])).sort().join("\n") === want) || null;
+}
 export const favKcal = (fav) => fav.items.reduce((a, it) => a + (it[2] || 0), 0);
 const favEmoji = (fav) => fav.items.find((it) => it[7])?.[7] || "⭐";
 

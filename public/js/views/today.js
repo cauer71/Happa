@@ -8,9 +8,8 @@ import { MEALS, totals, tipFor, E, unitOf } from "../nutrition.js";
 import { openAdd } from "./add.js";
 import { openEntry } from "./entry.js";
 import { openWeight } from "./weight.js";
-import { openCamera } from "./camera.js";
 import { ClaudePromo } from "../claude.js";
-import { openFavorite } from "./favorites.js";
+import { openFavorite, favoriteFor } from "./favorites.js";
 import { EnergyCard } from "./health.js";
 
 export function useMedia(query) {
@@ -273,6 +272,7 @@ function MealCard({ meal, day, kcal }) {
     seen.current = { d: day.d, n: entries.length };
   }, [day.d, entries.length]);
   const canToggle = entries.length > 0;
+  const fav = favoriteFor(entries);
   const open = !collapsed || !canToggle;
   const head = html`
     <div class="meal-emoji" style=${`background:color-mix(in srgb, ${meal.tint} 18%, transparent)`}>${meal.emoji}</div>
@@ -288,9 +288,11 @@ function MealCard({ meal, day, kcal }) {
               aria-label=${`${meal.name} ${open ? "einklappen" : "aufklappen"}`} onClick=${toggle}>
               ${head}</button>`
           : html`<div class="meal-toggle static">${head}</div>`}
-        ${entries.length > 0 && html`<button class="icon-btn sm fill" aria-label=${`${meal.name} als Favorit speichern`}
-          onClick=${() => openFavorite({ entries, meal: meal.id, d: day.d })}>${Icon.star()}</button>`}
-        <button class="icon-btn sm fill" aria-label=${`Foto für ${meal.name}`} onClick=${() => { haptic(); openCamera({ meal: meal.id, d: day.d }); }}>${Icon.camera()}</button>
+        ${entries.length > 0 && (fav
+          ? html`<button class="icon-btn sm fill fav-on" aria-label=${`${meal.name} ist der Favorit „${fav.n}“ – öffnen`}
+              onClick=${() => openFavorite({ fav, meal: meal.id, d: day.d })}>${Icon.starFill()}</button>`
+          : html`<button class="icon-btn sm fill" aria-label=${`${meal.name} als Favorit speichern`}
+              onClick=${() => openFavorite({ entries, meal: meal.id, d: day.d })}>${Icon.star()}</button>`)}
         <button class="icon-btn tint" aria-label=${`${meal.name} hinzufügen`} onClick=${() => { haptic(); openAdd(meal.id, day.d); }}>${Icon.plus()}</button>
       </div>
       ${entries.length > 0 && open && html`<div class="entries" id=${`meal-${meal.id}`}>${entries.map((e) => html`<${EntryRow} key=${e[E.id]} entry=${e} d=${day.d}/>`)}</div>`}

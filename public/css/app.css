@@ -430,6 +430,7 @@ img { display: block; max-width: 100%; }
 .meal-sub { font-size: 13px; color: var(--text-2); }
 .meal-toggle { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .meal-toggle.static { cursor: default; }
+.icon-btn.fav-on { color: var(--gold); }
 .meal-toggle .grow { min-width: 0; }
 .meal-chev { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 4px; vertical-align: -3px; color: var(--text-3); transition: transform .25s var(--spring); transform: rotate(90deg); }
 .meal-chev svg { width: 13px; height: 13px; stroke-width: 2.6; }
@@ -475,7 +476,7 @@ img { display: block; max-width: 100%; }
 .cup.full .glass-water { transform: translateY(0); }
 .cup.full .glass-wave { animation: glass-wave 1.1s ease-out 2; }
 .cup.full .glass-rim { stroke: color-mix(in srgb, var(--water) 70%, transparent); }
-.cup.next .glass-rim { stroke: var(--water); stroke-dasharray: 3 2.6; }
+.cup.next .glass-rim { stroke: color-mix(in srgb, var(--water) 70%, transparent); }
 .glass-plus { font: 700 15px var(--font); fill: var(--water); }
 @keyframes glass-wave { from { transform: translateX(0); } to { transform: translateX(20px); } }
 @media (prefers-reduced-motion: reduce) { .glass-water { transition: none; } .glass-wave { animation: none; } }
