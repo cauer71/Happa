@@ -193,11 +193,11 @@ function WeekStrip({ selected, logged }) {
 
   const weeks = [far && jump < selected ? far : addDays(monday, -7), monday, far && jump > selected ? far : addDays(monday, 7)];
   const pick = (d) => { if (dragged.current || d === selected || d > t) return; haptic(); selectDay(d); };
-  // Weiße Fläche („Regler“) hinter dem gewählten Tag. In den Nachbarwochen liegt sie schon auf dem Tag,
-  // der beim Blättern gewählt wird – so wandert sie mit der Woche mit und springt nicht.
+  // Weiße Fläche („Regler“) hinter dem gewählten Tag. In den Nachbarwochen liegt sie schon (fett) auf dem Tag,
+  // der beim Blättern gewählt wird – so kommt sie mit der Woche herein und springt nicht.
+  const lensDay = (wi) => (wi === 1 ? selected : target ?? (wi === 0 ? addDays(selected, -7) : Math.min(addDays(selected, 7), t)));
   const lensIndex = (m, wi) => {
-    const d = wi === 1 ? selected : target ?? (wi === 0 ? addDays(selected, -7) : Math.min(addDays(selected, 7), t));
-    const i = diffDays(d, m);
+    const i = diffDays(lensDay(wi), m);
     return i >= 0 && i < 7 ? i : -1;
   };
 
@@ -210,7 +210,7 @@ function WeekStrip({ selected, logged }) {
             <div key=${m} class="week-days" aria-hidden=${wi !== 1} inert=${wi !== 1}>
               ${lensIndex(m, wi) >= 0 && html`<span class="day-lens" aria-hidden="true" style=${`transform:translateX(calc(${lensIndex(m, wi)} * (100% + 4px)))`}></span>`}
               ${Array.from({ length: 7 }, (_, i) => addDays(m, i)).map((d) => html`
-                <button class=${cx("day", d === selected && "sel", d === t && "today", logged.has(d) && "logged", d > t && "future")}
+                <button class=${cx("day", d === lensDay(wi) && "sel", d === t && "today", logged.has(d) && "logged", d > t && "future")}
                   disabled=${d > t} aria-label=${longDate(d)} aria-pressed=${d === selected} onClick=${() => pick(d)}>
                   <span>${weekdayShort(d)}</span><b>${d % 100}</b><i></i>
                 </button>`)}
