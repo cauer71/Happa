@@ -151,9 +151,10 @@ function WeekStrip({ selected, logged }) {
       el.style.transition = `transform ${ms}ms cubic-bezier(.32,.72,0,1)`;
       el.style.transform = `translateX(${dir > 0 ? "-66.6667" : "0"}%)`;
       setTimeout(() => {
-        jump = null;
-        // Leiste inzwischen abgebaut (Tabwechsel): nicht nachträglich eine neuere Auswahl überschreiben
+        // Leiste inzwischen abgebaut (Tabwechsel): nichts mehr anfassen – weder eine neuere Auswahl
+        // noch den Sprung (jump) einer neuen Leiste
         if (!track.current) return;
+        jump = null;
         setFar(null); setTarget(null); selectDay(next);
       }, ms + 20);
     });
@@ -170,7 +171,7 @@ function WeekStrip({ selected, logged }) {
 
   const down = (e) => {
     if (busy.current || (e.pointerType === "mouse" && e.button !== 0)) return;
-    drag.current = { x: e.clientX, y: e.clientY, dx: 0, active: false, lx: e.clientX, lt: performance.now(), v: 0 };
+    drag.current = { x: e.clientX, y: e.clientY, dx: 0, active: false, s: [[e.clientX, performance.now()]] };
   };
   const move = (e) => {
     const g = drag.current;
@@ -186,7 +187,7 @@ function WeekStrip({ selected, logged }) {
       return;
     }
     const now = performance.now();
-    g.v = (e.clientX - g.lx) / Math.max(1, now - g.lt); g.lx = e.clientX; g.lt = now;
+    g.s.push([e.clientX, now]); if (g.s.length > 12) g.s.shift();
     if (atEnd && dx < 0) dx = -Math.pow(-dx, 0.75); // Gummiband: keine Zukunft
     g.dx = dx;
     track.current.style.transform = `translateX(calc(-33.3333% + ${dx}px))`;
@@ -198,8 +199,13 @@ function WeekStrip({ selected, logged }) {
     dragged.current = true;
     setTimeout(() => { dragged.current = false; }, 60);
     const w = vp.current?.offsetWidth || 300;
-    // Ein schneller Wisch zählt vor der Strecke – in beide Richtungen gleich; ein angehaltener Finger ist kein Wisch
-    const v = performance.now() - g.lt > 120 ? 0 : g.v;
+    // Ein schneller Wisch zählt vor der Strecke – in beide Richtungen gleich. Geschwindigkeit über die letzten
+    // ~80 ms und mindestens 12 px Weg: ein Zucken beim Loslassen oder ein angehaltener Finger ist kein Wisch.
+    const s = g.s, [xl, tl] = s[s.length - 1];
+    let k = Math.max(0, s.length - 2);
+    while (k > 0 && tl - s[k - 1][1] <= 80) k--;
+    const travel = xl - s[k][0];
+    const v = performance.now() - tl > 120 || Math.abs(travel) < 12 ? 0 : travel / Math.max(1, tl - s[k][1]);
     const dir = v < -0.45 ? 1 : v > 0.45 ? -1 : g.dx < -w * 0.18 ? 1 : g.dx > w * 0.18 ? -1 : 0;
     if (dir > 0 && !atEnd) go(1);
     else if (dir < 0) go(-1);
