@@ -181,6 +181,7 @@ function WeekStrip({ selected, logged }) {
     if (!g.active) {
       if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
         g.active = true; g.x = e.clientX; dx = 0;
+        g.s.push([e.clientX, performance.now()]); // auch dieser Schritt zählt für die Wisch-Geschwindigkeit
         e.currentTarget.setPointerCapture?.(e.pointerId);
         track.current.style.transition = "none";
       } else if (Math.abs(dy) > 10) drag.current = null;
