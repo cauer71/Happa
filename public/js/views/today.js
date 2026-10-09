@@ -150,7 +150,12 @@ function WeekStrip({ selected, logged }) {
       if (!el) return;
       el.style.transition = `transform ${ms}ms cubic-bezier(.32,.72,0,1)`;
       el.style.transform = `translateX(${dir > 0 ? "-66.6667" : "0"}%)`;
-      setTimeout(() => { jump = null; setFar(null); setTarget(null); selectDay(next); }, ms + 20);
+      setTimeout(() => {
+        jump = null;
+        // Leiste inzwischen abgebaut (Tabwechsel): nicht nachträglich eine neuere Auswahl überschreiben
+        if (!track.current) return;
+        setFar(null); setTarget(null); selectDay(next);
+      }, ms + 20);
     });
   };
   slide = go;
@@ -193,8 +198,11 @@ function WeekStrip({ selected, logged }) {
     dragged.current = true;
     setTimeout(() => { dragged.current = false; }, 60);
     const w = vp.current?.offsetWidth || 300;
-    if ((g.dx < -w * 0.18 || g.v < -0.45) && !atEnd) go(1);
-    else if (g.dx > w * 0.18 || g.v > 0.45) go(-1);
+    // Ein schneller Wisch zählt vor der Strecke – in beide Richtungen gleich; ein angehaltener Finger ist kein Wisch
+    const v = performance.now() - g.lt > 120 ? 0 : g.v;
+    const dir = v < -0.45 ? 1 : v > 0.45 ? -1 : g.dx < -w * 0.18 ? 1 : g.dx > w * 0.18 ? -1 : 0;
+    if (dir > 0 && !atEnd) go(1);
+    else if (dir < 0) go(-1);
     else snapBack();
   };
 
