@@ -111,6 +111,7 @@ function WeekStrip({ selected, logged }) {
   const dragged = useRef(false);
   const busy = useRef(false);
   const [far, setFar] = useState(null); // Montag der Nachbarwoche bei weiten Sprüngen
+  const [target, setTarget] = useState(null); // Tag, der nach dem Wochenwechsel gewählt wird
   const atEnd = addDays(monday, 7) > t;
 
   useEffect(() => {
@@ -134,6 +135,7 @@ function WeekStrip({ selected, logged }) {
     const next = target ?? Math.min(addDays(selected, dir * 7), t);
     if (Math.abs(diffDays(mondayOf(next), monday)) > 7) { jump = next; setFar(mondayOf(next)); }
     busy.current = true;
+    setTarget(next);
     haptic();
     const ms = reduceMotion() ? 1 : 560;
     requestAnimationFrame(() => {
@@ -141,7 +143,7 @@ function WeekStrip({ selected, logged }) {
       if (!el) return;
       el.style.transition = `transform ${ms}ms cubic-bezier(.32,.72,0,1)`;
       el.style.transform = `translateX(${dir > 0 ? "-66.6667" : "0"}%)`;
-      setTimeout(() => { jump = null; setFar(null); selectDay(next); }, ms + 20);
+      setTimeout(() => { jump = null; setFar(null); setTarget(null); selectDay(next); }, ms + 20);
     });
   };
   slide = go;
@@ -191,6 +193,13 @@ function WeekStrip({ selected, logged }) {
 
   const weeks = [far && jump < selected ? far : addDays(monday, -7), monday, far && jump > selected ? far : addDays(monday, 7)];
   const pick = (d) => { if (dragged.current || d === selected || d > t) return; haptic(); selectDay(d); };
+  // Weiße Fläche („Regler“) hinter dem gewählten Tag. In den Nachbarwochen liegt sie schon auf dem Tag,
+  // der beim Blättern gewählt wird – so wandert sie mit der Woche mit und springt nicht.
+  const lensIndex = (m, wi) => {
+    const d = wi === 1 ? selected : target ?? (wi === 0 ? addDays(selected, -7) : Math.min(addDays(selected, 7), t));
+    const i = diffDays(d, m);
+    return i >= 0 && i < 7 ? i : -1;
+  };
 
   return html`
     <div class="row week-row">
@@ -199,6 +208,7 @@ function WeekStrip({ selected, logged }) {
         <div ref=${track} class="week-track">
           ${weeks.map((m, wi) => html`
             <div key=${m} class="week-days" aria-hidden=${wi !== 1} inert=${wi !== 1}>
+              ${lensIndex(m, wi) >= 0 && html`<span class="day-lens" aria-hidden="true" style=${`transform:translateX(calc(${lensIndex(m, wi)} * (100% + 4px)))`}></span>`}
               ${Array.from({ length: 7 }, (_, i) => addDays(m, i)).map((d) => html`
                 <button class=${cx("day", d === selected && "sel", d === t && "today", logged.has(d) && "logged", d > t && "future")}
                   disabled=${d > t} aria-label=${longDate(d)} aria-pressed=${d === selected} onClick=${() => pick(d)}>
