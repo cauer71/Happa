@@ -94,9 +94,13 @@ function StreakPill({ n }) {
 // Drei Wochen liegen nebeneinander (vorige, aktuelle, nächste); die Spur wird verschoben
 // und nach der Animation unsichtbar wieder auf die Mitte gesetzt.
 let jump = null; // Ziel, wenn „Heute“ mehrere Wochen überspringt
-let slide = null; // von WeekStrip gesetzt: (dir, target?) => void
+let slide = null; // von WeekStrip gesetzt: (dir, dest?) => void
+let sliding = false; // eine Woche gleitet gerade; danach wird der Tag gewählt
+let todayQueued = false; // „Heute“ während des Gleitens gedrückt: danach ausführen
 
 function goToday() {
+  // Sonst würde das Ende des laufenden Wochenwechsels die Auswahl wieder überschreiben
+  if (sliding) { todayQueued = true; return; }
   const t = today();
   if (mondayOf(state.selected) === mondayOf(t) || !slide) { if (state.selected !== t) selectDay(t); return; }
   slide(1, t);
@@ -111,7 +115,7 @@ function WeekStrip({ selected, logged }) {
   const dragged = useRef(false);
   const busy = useRef(false);
   const [far, setFar] = useState(null); // Montag der Nachbarwoche bei weiten Sprüngen
-  const [target, setTarget] = useState(null); // Tag, der nach dem Wochenwechsel gewählt wird
+  const [target, setTarget] = useState(null); // { d, wi }: Tag, der nach dem Wochenwechsel gewählt wird, und seine Zeile
   const atEnd = addDays(monday, 7) > t;
 
   useEffect(() => {
@@ -127,15 +131,18 @@ function WeekStrip({ selected, logged }) {
     el.style.transform = "translateX(-33.3333%)";
     void el.offsetWidth;
     busy.current = false;
+    sliding = false;
+    if (todayQueued) { todayQueued = false; requestAnimationFrame(goToday); }
   }, [monday]);
 
-  const go = (dir, target) => {
+  const go = (dir, dest) => {
     if (busy.current || !track.current) return;
     if (dir > 0 && atEnd) return snapBack();
-    const next = target ?? Math.min(addDays(selected, dir * 7), t);
+    const next = dest ?? Math.min(addDays(selected, dir * 7), t);
     if (Math.abs(diffDays(mondayOf(next), monday)) > 7) { jump = next; setFar(mondayOf(next)); }
     busy.current = true;
-    setTarget(next);
+    sliding = true;
+    setTarget({ d: next, wi: dir > 0 ? 2 : 0 });
     haptic();
     const ms = reduceMotion() ? 1 : 560;
     requestAnimationFrame(() => {
@@ -192,10 +199,13 @@ function WeekStrip({ selected, logged }) {
   };
 
   const weeks = [far && jump < selected ? far : addDays(monday, -7), monday, far && jump > selected ? far : addDays(monday, 7)];
-  const pick = (d) => { if (dragged.current || d === selected || d > t) return; haptic(); selectDay(d); };
+  const pick = (d) => { if (busy.current || dragged.current || d === selected || d > t) return; haptic(); selectDay(d); };
   // Weiße Fläche („Regler“) hinter dem gewählten Tag. In den Nachbarwochen liegt sie schon (fett) auf dem Tag,
   // der beim Blättern gewählt wird – so kommt sie mit der Woche herein und springt nicht.
-  const lensDay = (wi) => (wi === 1 ? selected : target ?? (wi === 0 ? addDays(selected, -7) : Math.min(addDays(selected, 7), t)));
+  // Das Ziel gilt nur für die Zeile, zu der geblättert wird; die andere Nachbarwoche behält ihre Fläche.
+  const lensDay = (wi) => (wi === 1 ? selected
+    : target?.wi === wi ? target.d
+    : wi === 0 ? addDays(selected, -7) : Math.min(addDays(selected, 7), t));
   const lensIndex = (m, wi) => {
     const i = diffDays(lensDay(wi), m);
     return i >= 0 && i < 7 ? i : -1;
