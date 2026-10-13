@@ -26,21 +26,27 @@ const SOURCE = { b: "BLS", o: "Open Food Facts", k: "KI-Schätzung", m: "Manuell
 const nameKey = (n) => String(n || "").trim().replace(/\s+/g, " ").toLowerCase();
 
 // Eintrag → Lebensmittel für die Vorschlagsliste. Ein auf dem Gerät gespeichertes Lebensmittel (Bild, Quelle,
-// genaue Nährwerte pro 100 g) zählt nur, wenn es den letzten Eintrag exakt ergibt – KI- und eigene
-// Schätzungen gleichen Namens können jedes Mal anders sein. Sonst rechnen wir aus dem Eintrag zurück.
-function foodFromEntry(e, known) {
+// genaue Nährwerte pro 100 g) zählt nur, wenn es den letzten Eintrag exakt ergibt (kcal und Nährstoffe) –
+// KI- und eigene Schätzungen gleichen Namens können jedes Mal anders sein. Sonst rechnen wir aus dem Eintrag zurück.
+// candidates: gespeicherte Lebensmittel mit gleichem Namen, neueste zuerst
+function foodFromEntry(e, candidates = []) {
   const unit = unitOf(e), grams = e[E.grams];
   const base = { name: e[E.name], emoji: e[E.emoji] || foodEmoji(e[E.name]), src: e[E.src], thumbId: e[E.id], source: SOURCE[e[E.src]] || "" };
   if (!(grams > 0)) return { ...base, fixed: e, grams: 0 }; // ohne Menge eingetragen: als ganze Portion übernehmen
-  if (known?.per100 && known.src === e[E.src] && unitFor(known) === unit) {
-    const kcal = makeEntry({ id: "x", meal: 0, name: e[E.name], grams, per100: known.per100, src: e[E.src], unit, perMl: known.perMl })[E.kcal];
-    if (Math.abs(kcal - e[E.kcal]) <= 1) return { ...known, name: e[E.name], emoji: base.emoji, thumbId: e[E.id], grams, unit };
+  const ordered = [...candidates.filter((f) => f.name === e[E.name]), ...candidates.filter((f) => f.name !== e[E.name])];
+  for (const known of ordered) {
+    if (!known.per100 || known.src !== e[E.src] || unitFor(known) !== unit) continue;
+    const x = makeEntry({ id: "x", meal: 0, name: e[E.name], grams, per100: known.per100, src: e[E.src], unit, perMl: known.perMl });
+    const same = Math.abs(x[E.kcal] - e[E.kcal]) <= 1
+      && [E.protein, E.carbs, E.fat].every((i) => Math.abs(x[i] - (e[i] || 0)) <= 0.15); // 0,1-g-Rundung
+    if (same) return { ...known, name: e[E.name], emoji: base.emoji, thumbId: e[E.id], grams, unit };
   }
   return { ...base, per100: per100Of(e), grams, unit, perMl: unit === "ml" };
 }
 
 export function recentForMeal(days, meal, t = today()) {
-  const known = new Map(recentFoods().map((f) => [nameKey(f.name), f]));
+  const known = new Map(); // Name → gespeicherte Lebensmittel, neueste zuerst
+  for (const f of recentFoods()) { const k = nameKey(f.name); if (!known.has(k)) known.set(k, []); known.get(k).push(f); }
   const from = addDays(t, -RECENT_DAYS);
   const ds = Object.keys(days).map(Number).filter((d) => d >= from && d <= t).sort((a, b) => b - a);
   const seen = new Set(), out = [];
@@ -52,7 +58,7 @@ export function recentForMeal(days, meal, t = today()) {
       const key = nameKey(e[E.name]) + "|" + (e[E.grams] > 0 ? unitOf(e) : "portion");
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push(foodFromEntry(e, known.get(nameKey(e[E.name]))));
+      out.push(foodFromEntry(e, known.get(nameKey(e[E.name])) || []));
       if (out.length >= RECENT_MAX) return out;
     }
   }
@@ -135,12 +141,13 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
     try { await commitEntries(d, [entry], { thumb, foods: [[food, food.grams, unit]] }); }
     catch (err) { toast(err.message, "⚠️"); }
   };
-  const pick = async (food) => {
+  // Sofort öffnen (kein await davor, sonst öffnet ein Doppeltipp zwei Fenster); das Bild wird nachgereicht
+  const pick = (food) => {
     haptic();
     if (food.fixed) {
       const e = food.fixed;
       openManual(meal, d, e[E.name], { kcal: e[E.kcal], carbs: e[E.carbs], protein: e[E.protein], fat: e[E.fat], emoji: e[E.emoji], src: e[E.src], unit: unitOf(e) });
-    } else openPortion(food, meal, d, { thumb: await thumbOf(food) });
+    } else openPortion(food, meal, d, { thumb: thumbOf(food) });
   };
 
   const Row = (food, i) => {
@@ -221,7 +228,7 @@ function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
     setBusy(true);
     const entry = makeEntry({ id: uid(), meal, name: food.name, grams, per100: food.per100, src: food.src, emoji: food.emoji, unit, perMl: food.perMl });
     try {
-      await commitEntries(d, [entry], { thumb, foods: [[food, grams, unit]] });
+      await commitEntries(d, [entry], { thumb: await thumb, foods: [[food, grams, unit]] }); // thumb kann ein Promise sein
       closeAll();
     } catch (err) { toast(err.message, "⚠️"); setBusy(false); }
   };
@@ -276,6 +283,8 @@ function ManualSheet({ id, closing, meal: initialMeal, d, initialName, preset })
   const upd = (k) => (e) => setV({ ...v, [k]: e.currentTarget.value });
   const kcal = parseNum(v.kcal);
   const valid = v.name.trim() && kcal >= 0 && Number.isFinite(kcal);
+  // Getränk aus einem früheren Eintrag (ml): Menge in ml, solange der Name gleich bleibt
+  const mlUnit = preset?.unit === "ml" && nameKey(v.name) === nameKey(initialName);
 
   const save = async () => {
     if (!valid) return;
@@ -290,7 +299,7 @@ function ManualSheet({ id, closing, meal: initialMeal, d, initialName, preset })
       && ["protein", "carbs", "fat"].every((k) => Math.abs(num(v[k]) - (preset[k] || 0)) < 0.05);
     const entry = [uid(), meal, name, grams, Math.round(kcal), num(v.protein), num(v.carbs), num(v.fat),
       unchanged ? preset.src || "m" : "m", same && preset.emoji ? preset.emoji : foodEmoji(name)];
-    if (same && preset.unit === "ml") entry.push("ml");
+    if (mlUnit) entry.push("ml");
     try { await commitEntries(d, [entry]); closeAll(); }
     catch (err) { toast(err.message, "⚠️"); setBusy(false); }
   };
@@ -306,7 +315,7 @@ function ManualSheet({ id, closing, meal: initialMeal, d, initialName, preset })
       ${field("name", "Bezeichnung", "z. B. Omas Apfelkuchen", "text")}
       <div class="row" style="gap:10px;align-items:flex-start">
         <div class="grow">${field("kcal", "Kalorien (kcal)", "z. B. 250")}</div>
-        <div class="grow">${field("grams", "Menge (g, optional)", "–")}</div>
+        <div class="grow">${field("grams", `Menge (${mlUnit ? "ml" : "g"}, optional)`, "–")}</div>
       </div>
       <div class="row" style="gap:10px;align-items:flex-start">
         <div class="grow">${field("carbs", "KH (g)", "–")}</div>
