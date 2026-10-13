@@ -9,8 +9,11 @@ import { searchFoods, productAsFood } from "../foods.js";
 import { api } from "../api.js";
 import { openCamera } from "./camera.js";
 import { FavoritesSection } from "./favorites.js";
+import { getThumb, putThumb, deleteThumb } from "../thumbs.js";
 
 const DRINKS = 4;
+// „Zuletzt beim Frühstück“, „… bei Getränken“ (Dativ)
+const MEAL_DATIVE = ["beim Frühstück", "beim Mittagessen", "beim Abendessen", "bei Snacks", "bei Getränken"];
 export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
 const UNITS = [{ value: "g", label: "g" }, { value: "ml", label: "ml" }];
 const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
@@ -20,15 +23,19 @@ const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
 // Unter „Snacks“ erscheinen so nur zuletzt gegessene Snacks, unter „Getränke“ nur Getränke usw.
 const RECENT_DAYS = 30, RECENT_MAX = 15;
 const SOURCE = { b: "BLS", o: "Open Food Facts", k: "KI-Schätzung", m: "Manuell" };
-const nameKey = (n) => String(n || "").trim().toLowerCase();
+const nameKey = (n) => String(n || "").trim().replace(/\s+/g, " ").toLowerCase();
 
-// Eintrag → Lebensmittel für die Vorschlagsliste. Bekannte Lebensmittel (Gerätespeicher) liefern Bild,
-// Quelle und genaue Nährwerte pro 100 g; sonst rechnen wir aus dem Eintrag zurück.
+// Eintrag → Lebensmittel für die Vorschlagsliste. Ein auf dem Gerät gespeichertes Lebensmittel (Bild, Quelle,
+// genaue Nährwerte pro 100 g) zählt nur, wenn es den letzten Eintrag exakt ergibt – KI- und eigene
+// Schätzungen gleichen Namens können jedes Mal anders sein. Sonst rechnen wir aus dem Eintrag zurück.
 function foodFromEntry(e, known) {
   const unit = unitOf(e), grams = e[E.grams];
   const base = { name: e[E.name], emoji: e[E.emoji] || foodEmoji(e[E.name]), src: e[E.src], thumbId: e[E.id], source: SOURCE[e[E.src]] || "" };
   if (!(grams > 0)) return { ...base, fixed: e, grams: 0 }; // ohne Menge eingetragen: als ganze Portion übernehmen
-  if (known && known.src === e[E.src] && unitFor(known) === unit) return { ...known, thumbId: e[E.id], grams, unit };
+  if (known?.per100 && known.src === e[E.src] && unitFor(known) === unit) {
+    const kcal = makeEntry({ id: "x", meal: 0, name: e[E.name], grams, per100: known.per100, src: e[E.src], unit, perMl: known.perMl })[E.kcal];
+    if (Math.abs(kcal - e[E.kcal]) <= 1) return { ...known, name: e[E.name], emoji: base.emoji, thumbId: e[E.id], grams, unit };
+  }
   return { ...base, per100: per100Of(e), grams, unit, perMl: unit === "ml" };
 }
 
@@ -42,7 +49,7 @@ export function recentForMeal(days, meal, t = today()) {
     for (let i = log.length - 1; i >= 0; i--) { // neueste Einträge zuerst
       const e = log[i];
       if (e[E.meal] !== meal) continue;
-      const key = nameKey(e[E.name]) + "|" + unitOf(e);
+      const key = nameKey(e[E.name]) + "|" + (e[E.grams] > 0 ? unitOf(e) : "portion");
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(foodFromEntry(e, known.get(nameKey(e[E.name]))));
@@ -60,7 +67,10 @@ export function remainingText(d) {
 
 // Eintragen + Rückmeldung (von Suche, Portion, Kamera genutzt)
 export async function commitEntries(d, entries, { thumb, foods = [] } = {}) {
-  await addEntries(d, entries, thumb);
+  // Vorschaubild schon vor dem Speichern hinterlegen – die Liste zeigt den neuen Eintrag sofort an
+  if (thumb) entries.forEach((e) => putThumb(e[0], thumb));
+  try { await addEntries(d, entries, thumb); }
+  catch (err) { if (thumb) entries.forEach((e) => deleteThumb(e[0])); throw err; }
   foods.forEach(([food, grams, unit]) => pushRecent(food, grams, unit));
   haptic("success");
   toast(`Eingetragen · ${remainingText(d)}`, "✅");
@@ -111,21 +121,26 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
   useEffect(() => { fetchProducts(q); }, [q]);
   const productList = products.q === q ? products.list : [];
 
+  // Foto-Vorschaubild des letzten Eintrags mitnehmen (falls vorhanden)
+  const thumbOf = async (food) => (food.thumbId ? getThumb(food.thumbId).catch(() => null) : null);
   const quickAdd = async (food) => {
+    const thumb = await thumbOf(food);
     if (food.fixed) { // ganze Portion wie beim letzten Mal
-      try { await commitEntries(d, [[uid(), meal, ...food.fixed.slice(2)]]); }
+      try { await commitEntries(d, [[uid(), meal, ...food.fixed.slice(2)]], { thumb }); }
       catch (err) { toast(err.message, "⚠️"); }
       return;
     }
     const unit = unitFor(food);
     const entry = makeEntry({ id: uid(), meal, name: food.name, grams: food.grams, per100: food.per100, src: food.src, emoji: food.emoji, unit, perMl: food.perMl });
-    try { await commitEntries(d, [entry], { foods: [[food, food.grams, unit]] }); }
+    try { await commitEntries(d, [entry], { thumb, foods: [[food, food.grams, unit]] }); }
     catch (err) { toast(err.message, "⚠️"); }
   };
-  const pick = (food) => {
+  const pick = async (food) => {
     haptic();
-    if (food.fixed) { const e = food.fixed; openManual(meal, d, e[E.name], { kcal: e[E.kcal], carbs: e[E.carbs], protein: e[E.protein], fat: e[E.fat] }); }
-    else openPortion(food, meal, d);
+    if (food.fixed) {
+      const e = food.fixed;
+      openManual(meal, d, e[E.name], { kcal: e[E.kcal], carbs: e[E.carbs], protein: e[E.protein], fat: e[E.fat], emoji: e[E.emoji], src: e[E.src], unit: unitOf(e) });
+    } else openPortion(food, meal, d, { thumb: await thumbOf(food) });
   };
 
   const Row = (food, i) => {
@@ -166,9 +181,9 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
           <button onClick=${() => openManual(meal, d)}>${Icon.pencil()}Manuell</button>
         </div>
         <${FavoritesSection} meal=${meal} d=${d}/>
-        <div class="group-label">Zuletzt bei ${MEALS[meal]?.name || "dieser Mahlzeit"}</div>
+        <div class="group-label">Zuletzt ${MEAL_DATIVE[meal] || "bei dieser Mahlzeit"}</div>
         ${recent.length ? html`<div class="results">${recent.map(Row)}</div>`
-          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheint, was du zuletzt bei ${MEALS[meal]?.name || "dieser Mahlzeit"} eingetragen hast.</div>`}`}
+          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheint, was du zuletzt ${MEAL_DATIVE[meal] || "bei dieser Mahlzeit"} eingetragen hast.</div>`}`}
 
       ${q && html`
         <${FavoritesSection} meal=${meal} d=${d} q=${q}/>
@@ -255,7 +270,8 @@ export function openManual(meal, d, name = "", preset = null) {
 function ManualSheet({ id, closing, meal: initialMeal, d, initialName, preset }) {
   const [meal, setMeal] = useState(initialMeal ?? mealForNow());
   const txt = (x) => (x ? String(x).replace(".", ",") : "");
-  const [v, setV] = useState({ name: initialName, kcal: txt(preset?.kcal), grams: "", carbs: txt(preset?.carbs), protein: txt(preset?.protein), fat: txt(preset?.fat) });
+  const kcalTxt = Number.isFinite(preset?.kcal) ? String(preset.kcal).replace(".", ",") : ""; // auch 0 kcal vorbelegen
+  const [v, setV] = useState({ name: initialName, kcal: kcalTxt, grams: "", carbs: txt(preset?.carbs), protein: txt(preset?.protein), fat: txt(preset?.fat) });
   const [busy, setBusy] = useState(false);
   const upd = (k) => (e) => setV({ ...v, [k]: e.currentTarget.value });
   const kcal = parseNum(v.kcal);
@@ -266,7 +282,15 @@ function ManualSheet({ id, closing, meal: initialMeal, d, initialName, preset })
     setBusy(true);
     const grams = parseNum(v.grams) || 0;
     const num = (x) => Math.max(0, parseNum(x) || 0);
-    const entry = [uid(), meal, v.name.trim(), grams, Math.round(kcal), num(v.protein), num(v.carbs), num(v.fat), "m", foodEmoji(v.name)];
+    const name = v.name.trim();
+    // Vorbelegt aus einem früheren Eintrag: Emoji und ml behalten, solange der Name gleich ist;
+    // die Quelle (z. B. KI-Schätzung) nur, wenn nichts geändert wurde
+    const same = !!preset && nameKey(name) === nameKey(initialName);
+    const unchanged = same && !grams && Math.round(kcal) === Math.round(preset.kcal || 0)
+      && ["protein", "carbs", "fat"].every((k) => Math.abs(num(v[k]) - (preset[k] || 0)) < 0.05);
+    const entry = [uid(), meal, name, grams, Math.round(kcal), num(v.protein), num(v.carbs), num(v.fat),
+      unchanged ? preset.src || "m" : "m", same && preset.emoji ? preset.emoji : foodEmoji(name)];
+    if (same && preset.unit === "ml") entry.push("ml");
     try { await commitEntries(d, [entry]); closeAll(); }
     catch (err) { toast(err.message, "⚠️"); setBusy(false); }
   };
