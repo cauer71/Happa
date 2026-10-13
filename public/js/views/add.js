@@ -1,10 +1,10 @@
-// Hinzufügen: Suche (BLS lokal + Open Food Facts), zuletzt verwendet, Portion, manuell.
+// Hinzufügen: Suche (BLS lokal + Open Food Facts), zuletzt verwendet (je Mahlzeit), Portion, manuell.
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
-import { html, cx, haptic, today, uid, n0, n1, parseNum, debounce } from "../util.js";
+import { html, cx, haptic, today, addDays, uid, n0, n1, parseNum, debounce } from "../util.js";
 import { Icon } from "../icons.js";
-import { useStore, openOverlay, closeOverlay, closeAll, addEntries, toast, pushRecent, recentFoods, currentGoals, checkBadges, state } from "../store.js";
-import { Sheet, Seg } from "../ui.js";
-import { MEALS, mealForNow, makeEntry, totals, foodEmoji, unitFor, gramsOf, kcalPer100 } from "../nutrition.js";
+import { useStore, openOverlay, closeOverlay, closeAll, addEntries, toast, pushRecent, recentFoods, loadRange, currentGoals, checkBadges, state } from "../store.js";
+import { Sheet, Seg, Thumb } from "../ui.js";
+import { MEALS, E, mealForNow, makeEntry, totals, foodEmoji, unitFor, unitOf, per100Of, gramsOf, kcalPer100 } from "../nutrition.js";
 import { searchFoods, productAsFood } from "../foods.js";
 import { api } from "../api.js";
 import { openCamera } from "./camera.js";
@@ -14,6 +14,43 @@ const DRINKS = 4;
 export const mealOptions = MEALS.map((m) => ({ value: m.id, label: m.name.replace("essen", "") }));
 const UNITS = [{ value: "g", label: "g" }, { value: "ml", label: "ml" }];
 const gramText = (g) => String(Math.round(g * 10) / 10).replace(".", ",");
+
+// ── Zuletzt verwendet, getrennt nach Mahlzeit ──
+// Quelle ist das Tagebuch der letzten Tage (auch Einträge von anderen Geräten, per Foto oder über Claude).
+// Unter „Snacks“ erscheinen so nur zuletzt gegessene Snacks, unter „Getränke“ nur Getränke usw.
+const RECENT_DAYS = 30, RECENT_MAX = 15;
+const SOURCE = { b: "BLS", o: "Open Food Facts", k: "KI-Schätzung", m: "Manuell" };
+const nameKey = (n) => String(n || "").trim().toLowerCase();
+
+// Eintrag → Lebensmittel für die Vorschlagsliste. Bekannte Lebensmittel (Gerätespeicher) liefern Bild,
+// Quelle und genaue Nährwerte pro 100 g; sonst rechnen wir aus dem Eintrag zurück.
+function foodFromEntry(e, known) {
+  const unit = unitOf(e), grams = e[E.grams];
+  const base = { name: e[E.name], emoji: e[E.emoji] || foodEmoji(e[E.name]), src: e[E.src], thumbId: e[E.id], source: SOURCE[e[E.src]] || "" };
+  if (!(grams > 0)) return { ...base, fixed: e, grams: 0 }; // ohne Menge eingetragen: als ganze Portion übernehmen
+  if (known && known.src === e[E.src] && unitFor(known) === unit) return { ...known, thumbId: e[E.id], grams, unit };
+  return { ...base, per100: per100Of(e), grams, unit, perMl: unit === "ml" };
+}
+
+export function recentForMeal(days, meal, t = today()) {
+  const known = new Map(recentFoods().map((f) => [nameKey(f.name), f]));
+  const from = addDays(t, -RECENT_DAYS);
+  const ds = Object.keys(days).map(Number).filter((d) => d >= from && d <= t).sort((a, b) => b - a);
+  const seen = new Set(), out = [];
+  for (const d of ds) {
+    const log = days[d]?.log || [];
+    for (let i = log.length - 1; i >= 0; i--) { // neueste Einträge zuerst
+      const e = log[i];
+      if (e[E.meal] !== meal) continue;
+      const key = nameKey(e[E.name]) + "|" + unitOf(e);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(foodFromEntry(e, known.get(nameKey(e[E.name]))));
+      if (out.length >= RECENT_MAX) return out;
+    }
+  }
+  return out;
+}
 
 export function remainingText(d) {
   const day = state.days[d];
@@ -35,12 +72,14 @@ export function openAdd(meal = mealForNow(), d = today()) {
 }
 
 function AddSheet({ id, closing, meal: initialMeal, d }) {
-  useStore();
+  const s = useStore();
   const [meal, setMeal] = useState(initialMeal);
   const [q, setQ] = useState("");
   const [local, setLocal] = useState([]);
   const [products, setProducts] = useState({ q: "", list: [], loading: false, error: null });
-  const recent = useMemo(() => recentFoods(), []);
+  // Letzte Tage einmal nachladen (nur fehlende), damit die Vorschläge je Mahlzeit vollständig sind
+  useEffect(() => { const t = today(); loadRange(addDays(t, -RECENT_DAYS), t).catch(() => {}); }, []);
+  const recent = useMemo(() => recentForMeal(s.days, meal), [s.days, meal]);
   const latest = useRef("");
   const aborter = useRef(null);
   useEffect(() => () => aborter.current?.abort(), []);
@@ -73,26 +112,41 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
   const productList = products.q === q ? products.list : [];
 
   const quickAdd = async (food) => {
+    if (food.fixed) { // ganze Portion wie beim letzten Mal
+      try { await commitEntries(d, [[uid(), meal, ...food.fixed.slice(2)]]); }
+      catch (err) { toast(err.message, "⚠️"); }
+      return;
+    }
     const unit = unitFor(food);
     const entry = makeEntry({ id: uid(), meal, name: food.name, grams: food.grams, per100: food.per100, src: food.src, emoji: food.emoji, unit, perMl: food.perMl });
     try { await commitEntries(d, [entry], { foods: [[food, food.grams, unit]] }); }
     catch (err) { toast(err.message, "⚠️"); }
   };
-  const pick = (food) => { haptic(); openPortion(food, meal, d); };
+  const pick = (food) => {
+    haptic();
+    if (food.fixed) { const e = food.fixed; openManual(meal, d, e[E.name], { kcal: e[E.kcal], carbs: e[E.carbs], protein: e[E.protein], fat: e[E.fat] }); }
+    else openPortion(food, meal, d);
+  };
 
-  const Row = (food, i) => html`
+  const Row = (food, i) => {
+    const amount = food.fixed ? `${n0(food.fixed[E.kcal])} kcal` : `${gramText(food.grams)} ${unitFor(food)}`;
+    return html`
     <div class="result" key=${food.name + i}>
-      <button type="button" class="result-main" onClick=${() => pick(food)} aria-label=${`${food.name}, ${n0(kcalPer100(food))} kcal pro 100 ${unitFor(food)} – Menge wählen`}>
-        <div class="entry-thumb" aria-hidden="true">${food.image ? html`<img src=${food.image} alt="" loading="lazy" referrerpolicy="no-referrer"
-          onError=${(e) => { e.currentTarget.replaceWith(document.createTextNode(food.emoji)); }}/>` : food.emoji}</div>
+      <button type="button" class="result-main" onClick=${() => pick(food)}
+        aria-label=${food.fixed ? `${food.name}, ${amount} – bearbeiten und eintragen` : `${food.name}, ${n0(kcalPer100(food))} kcal pro 100 ${unitFor(food)} – Menge wählen`}>
+        ${food.image ? html`<div class="entry-thumb" aria-hidden="true"><img src=${food.image} alt="" loading="lazy" referrerpolicy="no-referrer"
+            onError=${(e) => { e.currentTarget.replaceWith(document.createTextNode(food.emoji)); }}/></div>`
+          : food.thumbId ? html`<${Thumb} id=${food.thumbId} emoji=${food.emoji}/>`
+          : html`<div class="entry-thumb" aria-hidden="true">${food.emoji}</div>`}
         <div class="grow">
           <div class="entry-name">${food.name}</div>
-          <div class="entry-sub">${n0(kcalPer100(food))} kcal / 100 ${unitFor(food)} · ${gramText(food.grams)} ${unitFor(food)} Portion${food.source ? " · " + food.source : ""}</div>
+          <div class="entry-sub">${food.fixed ? `${amount} · Portion` : `${n0(kcalPer100(food))} kcal / 100 ${unitFor(food)} · ${amount} Portion`}${food.source ? " · " + food.source : ""}</div>
         </div>
       </button>
-      <button type="button" class="result-add" aria-label=${`${food.name} direkt hinzufügen (${gramText(food.grams)} ${unitFor(food)})`}
+      <button type="button" class="result-add" aria-label=${`${food.name} direkt hinzufügen (${amount})`}
         onClick=${() => { haptic(); quickAdd(food); }}>${Icon.plus()}</button>
     </div>`;
+  };
 
   return html`
     <${Sheet} id=${id} closing=${closing} title="Hinzufügen" full>
@@ -112,9 +166,9 @@ function AddSheet({ id, closing, meal: initialMeal, d }) {
           <button onClick=${() => openManual(meal, d)}>${Icon.pencil()}Manuell</button>
         </div>
         <${FavoritesSection} meal=${meal} d=${d}/>
-        <div class="group-label">Zuletzt verwendet</div>
+        <div class="group-label">Zuletzt bei ${MEALS[meal]?.name || "dieser Mahlzeit"}</div>
         ${recent.length ? html`<div class="results">${recent.map(Row)}</div>`
-          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheinen deine zuletzt verwendeten Lebensmittel, sobald du etwas eingetragen hast.</div>`}`}
+          : html`<div class="muted" style="font-size:15px;padding:8px 0">Hier erscheint, was du zuletzt bei ${MEALS[meal]?.name || "dieser Mahlzeit"} eingetragen hast.</div>`}`}
 
       ${q && html`
         <${FavoritesSection} meal=${meal} d=${d} q=${q}/>
@@ -193,13 +247,15 @@ function PortionSheet({ id, closing, food, meal: initialMeal, d, thumb }) {
 }
 
 // ── Manuell eintragen ──
-export function openManual(meal, d, name = "") {
-  openOverlay((o) => html`<${ManualSheet} ...${o} meal=${meal} d=${d} initialName=${name}/>`);
+export function openManual(meal, d, name = "", preset = null) {
+  openOverlay((o) => html`<${ManualSheet} ...${o} meal=${meal} d=${d} initialName=${name} preset=${preset}/>`);
 }
 
-function ManualSheet({ id, closing, meal: initialMeal, d, initialName }) {
+// preset: Werte zum Vorbelegen (z. B. ein früherer Eintrag ohne Menge)
+function ManualSheet({ id, closing, meal: initialMeal, d, initialName, preset }) {
   const [meal, setMeal] = useState(initialMeal ?? mealForNow());
-  const [v, setV] = useState({ name: initialName, kcal: "", grams: "", carbs: "", protein: "", fat: "" });
+  const txt = (x) => (x ? String(x).replace(".", ",") : "");
+  const [v, setV] = useState({ name: initialName, kcal: txt(preset?.kcal), grams: "", carbs: txt(preset?.carbs), protein: txt(preset?.protein), fat: txt(preset?.fat) });
   const [busy, setBusy] = useState(false);
   const upd = (k) => (e) => setV({ ...v, [k]: e.currentTarget.value });
   const kcal = parseNum(v.kcal);
