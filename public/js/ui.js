@@ -36,6 +36,10 @@ export function Sheet({ id, closing, title, left, right, footer, full, children,
   const ref = useRef();
   const drag = useRef(null);
   const close = () => { onClose?.(); closeOverlay(id); };
+  // Der zweite Tipp eines Doppeltipps landet auf dem Hintergrund, solange das Fenster noch hereingleitet –
+  // ihn ignorieren, sonst schließt es sofort wieder
+  const born = useRef(performance.now());
+  const scrimClick = (e) => { if (e.detail > 1 || performance.now() - born.current < 450) return; close(); };
   useDialogFocus(ref, id, close);
 
   const down = (e) => {
@@ -72,7 +76,7 @@ export function Sheet({ id, closing, title, left, right, footer, full, children,
   };
 
   return html`
-    <div class=${cx("scrim", closing && "closing")} onClick=${close}></div>
+    <div class=${cx("scrim", closing && "closing")} onClick=${scrimClick}></div>
     <section ref=${ref} tabindex="-1" class=${cx("sheet", full && "full", closing && "closing")} role="dialog" aria-modal="true" aria-label=${title}>
       <div class="sheet-drag" onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${cancel}>
         <div class="sheet-grab"></div>
